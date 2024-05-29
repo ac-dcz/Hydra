@@ -23,10 +23,10 @@ type Logger interface {
 }
 
 var (
-	infoLog  = log.New(os.Stdout, "[INFO] ", log.LstdFlags|log.Lshortfile)
-	debugLog = log.New(os.Stdout, "[DUBUG] ", log.LstdFlags|log.Lshortfile)
-	errorLog = log.New(os.Stdout, "[ERROR] ", log.LstdFlags|log.Lshortfile)
-	warnLog  = log.New(os.Stdout, "[WARN] ", log.LstdFlags|log.Lshortfile)
+	infoLog  = log.New(os.Stdout, "[INFO] ", log.Ldate|log.Lmicroseconds|log.Lshortfile)
+	debugLog = log.New(os.Stdout, "[DUBUG] ", log.Ldate|log.Lmicroseconds|log.Lshortfile)
+	errorLog = log.New(os.Stdout, "[ERROR] ", log.Ldate|log.Lmicroseconds|log.Lshortfile)
+	warnLog  = log.New(os.Stdout, "[WARN] ", log.Ldate|log.Lmicroseconds|log.Lshortfile)
 	out      = []io.Writer{os.Stdout, os.Stdout, os.Stdout, os.Stdout}
 	logs     = []*log.Logger{infoLog, debugLog, errorLog, warnLog}
 )
