@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 
 	"go.dedis.ch/kyber/v3"
@@ -50,10 +51,10 @@ type PrivateKey struct {
 }
 
 type SecretShareKey struct {
-	PubPoly *share.PubPoly
-	PriPoly *share.PriShare
-	N       int
-	F       int
+	PubPoly  *share.PubPoly
+	PriShare *share.PriShare
+	N        int
+	T        int
 }
 
 type Signature struct {
@@ -79,13 +80,13 @@ func VerifyTs(skey *SecretShareKey, digest Digest, intactSig []byte) error {
 }
 
 // CombineIntactTSPartial assembles the intact threshold signature.
-func CombineIntactTSPartial(sigShares []SignatureShare, skey *SecretShareKey, digest Digest) ([]byte, error) {
+func CombineIntactTSPartial(sigShares []*SignatureShare, skey *SecretShareKey, digest Digest) ([]byte, error) {
 	suite := bn256.NewSuite()
 	var partialSigs [][]byte
 	for _, sig := range sigShares {
 		partialSigs = append(partialSigs, sig.PartialSig)
 	}
-	return tbls.Recover(suite, skey.PubPoly, digest[:], partialSigs, skey.F, skey.N)
+	return tbls.Recover(suite, skey.PubPoly, digest[:], partialSigs, skey.T, skey.N)
 }
 
 type sigReq struct {
@@ -129,7 +130,7 @@ func NewSigService(pri *PrivateKey, share *SecretShareKey) *SigService {
 			case SHARE:
 				go func(r *sigReq) {
 					suite := bn256.NewSuite()
-					partialSig, err := tbls.Sign(suite, srvc.sharePri.PriPoly, r.digest[:])
+					partialSig, err := tbls.Sign(suite, srvc.sharePri.PriShare, r.digest[:])
 					r.ret = &SignatureShare{
 						partialSig,
 					}
@@ -142,23 +143,25 @@ func NewSigService(pri *PrivateKey, share *SecretShareKey) *SigService {
 	return srvc
 }
 
-func (s *SecretShareKey) RequestSignature(digest Digest) (*Signature, error) {
+func (s *SigService) RequestSignature(digest Digest) (*Signature, error) {
 	req := &sigReq{
 		typ:    SIG,
 		digest: digest,
 		Done:   make(chan *sigReq, 1),
 	}
+	s.reqCh <- req
 	<-req.Done
 	sig, _ := req.ret.(*Signature)
 	return sig, nil
 }
 
-func (s *SecretShareKey) RequestTsSugnature(digest Digest) (*SignatureShare, error) {
+func (s *SigService) RequestTsSugnature(digest Digest) (*SignatureShare, error) {
 	req := &sigReq{
 		typ:    SHARE,
 		digest: digest,
 		Done:   make(chan *sigReq, 1),
 	}
+	s.reqCh <- req
 	<-req.Done
 	sig, _ := req.ret.(*SignatureShare)
 	return sig, req.err
@@ -335,4 +338,38 @@ func DecodeTSPublicKey(data []byte) (*share.PubPoly, error) {
 		return nil, err
 	}
 	return UnMarshallTSPublicKey(&tspm)
+}
+
+func EncodePublicKey(pub *PublickKey) []byte {
+	byt := make([]byte, 2*len(pub.Pubkey))
+	hex.Encode(byt, pub.Pubkey)
+	return byt
+}
+
+func DecodePublicKey(data []byte) (*PublickKey, error) {
+	pub := make([]byte, len(data)/2)
+	_, err := hex.Decode(pub, data)
+	if err != nil {
+		return nil, err
+	}
+	return &PublickKey{
+		Pubkey: pub,
+	}, nil
+}
+
+func EncodePrivateKey(pri *PrivateKey) []byte {
+	byt := make([]byte, 2*len(pri.Prikey))
+	hex.Encode(byt, pri.Prikey)
+	return byt
+}
+
+func DecodePrivateKey(data []byte) (*PrivateKey, error) {
+	pri := make([]byte, len(data)/2)
+	_, err := hex.Decode(pri, data)
+	if err != nil {
+		return nil, err
+	}
+	return &PrivateKey{
+		Prikey: pri,
+	}, nil
 }
