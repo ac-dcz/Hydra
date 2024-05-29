@@ -107,7 +107,7 @@ func (tr *Transmitor) Send(from, to NodeID, msg Message) error {
 	tr.mu.Unlock()
 
 	// Filter Delay
-	if msg.MsgType() == ProposeType && tr.parameters.DDos {
+	if msg.MsgType() == GRBCProposeType && tr.parameters.DDos {
 		time.AfterFunc(time.Millisecond*time.Duration(tr.parameters.NetwrokDelay), func() {
 			tr.msgCh <- netMsg
 		})
