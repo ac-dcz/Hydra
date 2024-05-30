@@ -10,9 +10,17 @@ type Parameters struct {
 	Faults        int  `json:"faults"`
 }
 
+var DefaultParameters = Parameters{
+	SyncTimeout:   500,
+	NetwrokDelay:  2_000,
+	MinBlockDelay: 0,
+	DDos:          false,
+	Faults:        0,
+}
+
 type NodeID int
 
-const None NodeID = -1
+const NONE NodeID = -1
 
 type Authority struct {
 	Name crypto.PublickKey `json:"name"`
@@ -21,7 +29,7 @@ type Authority struct {
 }
 
 type Committee struct {
-	Authorities map[NodeID]Authority
+	Authorities map[NodeID]Authority `json:"authorities"`
 }
 
 func (c Committee) ID(name crypto.PublickKey) NodeID {
@@ -30,7 +38,7 @@ func (c Committee) ID(name crypto.PublickKey) NodeID {
 			return id
 		}
 	}
-	return None
+	return NONE
 }
 
 func (c Committee) Name(id NodeID) crypto.PublickKey {
