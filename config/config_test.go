@@ -7,11 +7,11 @@ import (
 )
 
 func TestGenerateKeys(t *testing.T) {
-	GenerateKeys(4, "./")
+	GenerateKeyFiles(4, "./")
 }
 
 func TestGenrateTsKeys(t *testing.T) {
-	GenerateTsKeys(4, 3, "./")
+	GenerateTsKeyFiles(4, 3, "./")
 }
 
 func TestFromFileGenKey(t *testing.T) {
@@ -88,5 +88,32 @@ func TestFromFileGenTsKey(t *testing.T) {
 	}
 	if err := crypto.VerifyTs(shareKeys[0], digest, combineSig); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestSmapleParameters(t *testing.T) {
+	GenerateSampleParameters()
+}
+
+func TestSmapleCommittee(t *testing.T) {
+	GenerateSmapleCommittee()
+}
+
+func TestGenParametersFromFile(t *testing.T) {
+	poolP, coreP, err := GenParamatersFromFile("./parameters.json")
+	if err != nil {
+		t.Fatal(err)
+	} else {
+		t.Log(poolP)
+		t.Log(coreP)
+	}
+}
+
+func TestGenCommitteeFromFile(t *testing.T) {
+	committee, err := GenCommitteeFromFile("./committee.json")
+	if err != nil {
+		t.Fatal(err)
+	} else {
+		t.Log(committee)
 	}
 }
