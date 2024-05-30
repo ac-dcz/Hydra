@@ -61,7 +61,7 @@ type Signature struct {
 	Sig []byte
 }
 
-func (s *Signature) Verify(pub *PublickKey, digest Digest) bool {
+func (s *Signature) Verify(pub PublickKey, digest Digest) bool {
 	return ed25519.Verify(pub.Pubkey, digest[:], s.Sig)
 }
 
@@ -73,14 +73,14 @@ func (s *SignatureShare) Verify(Digest) bool {
 	return true
 }
 
-func VerifyTs(skey *SecretShareKey, digest Digest, intactSig []byte) error {
+func VerifyTs(skey SecretShareKey, digest Digest, intactSig []byte) error {
 	suite := bn256.NewSuite()
 	err := bls.Verify(suite, skey.PubPoly.Commit(), digest[:], intactSig)
 	return err
 }
 
 // CombineIntactTSPartial assembles the intact threshold signature.
-func CombineIntactTSPartial(sigShares []*SignatureShare, skey *SecretShareKey, digest Digest) ([]byte, error) {
+func CombineIntactTSPartial(sigShares []SignatureShare, skey SecretShareKey, digest Digest) ([]byte, error) {
 	suite := bn256.NewSuite()
 	var partialSigs [][]byte
 	for _, sig := range sigShares {
@@ -107,12 +107,12 @@ const (
 )
 
 type SigService struct {
-	pri      *PrivateKey
-	sharePri *SecretShareKey
+	pri      PrivateKey
+	sharePri SecretShareKey
 	reqCh    chan *sigReq
 }
 
-func NewSigService(pri *PrivateKey, share *SecretShareKey) *SigService {
+func NewSigService(pri PrivateKey, share SecretShareKey) *SigService {
 	srvc := &SigService{
 		pri:      pri,
 		sharePri: share,
@@ -123,7 +123,7 @@ func NewSigService(pri *PrivateKey, share *SecretShareKey) *SigService {
 			switch req.typ {
 			case SIG:
 				sig := ed25519.Sign(srvc.pri.Prikey, req.digest[:])
-				req.ret = &Signature{
+				req.ret = Signature{
 					Sig: sig,
 				}
 				req.done()
@@ -131,7 +131,7 @@ func NewSigService(pri *PrivateKey, share *SecretShareKey) *SigService {
 				go func(r *sigReq) {
 					suite := bn256.NewSuite()
 					partialSig, err := tbls.Sign(suite, srvc.sharePri.PriShare, r.digest[:])
-					r.ret = &SignatureShare{
+					r.ret = SignatureShare{
 						partialSig,
 					}
 					r.err = err
@@ -143,7 +143,7 @@ func NewSigService(pri *PrivateKey, share *SecretShareKey) *SigService {
 	return srvc
 }
 
-func (s *SigService) RequestSignature(digest Digest) (*Signature, error) {
+func (s *SigService) RequestSignature(digest Digest) (Signature, error) {
 	req := &sigReq{
 		typ:    SIG,
 		digest: digest,
@@ -151,11 +151,11 @@ func (s *SigService) RequestSignature(digest Digest) (*Signature, error) {
 	}
 	s.reqCh <- req
 	<-req.Done
-	sig, _ := req.ret.(*Signature)
+	sig, _ := req.ret.(Signature)
 	return sig, nil
 }
 
-func (s *SigService) RequestTsSugnature(digest Digest) (*SignatureShare, error) {
+func (s *SigService) RequestTsSugnature(digest Digest) (SignatureShare, error) {
 	req := &sigReq{
 		typ:    SHARE,
 		digest: digest,
@@ -163,7 +163,7 @@ func (s *SigService) RequestTsSugnature(digest Digest) (*SignatureShare, error) 
 	}
 	s.reqCh <- req
 	<-req.Done
-	sig, _ := req.ret.(*SignatureShare)
+	sig, _ := req.ret.(SignatureShare)
 	return sig, req.err
 }
 
@@ -340,36 +340,36 @@ func DecodeTSPublicKey(data []byte) (*share.PubPoly, error) {
 	return UnMarshallTSPublicKey(&tspm)
 }
 
-func EncodePublicKey(pub *PublickKey) []byte {
+func EncodePublicKey(pub PublickKey) []byte {
 	byt := make([]byte, 2*len(pub.Pubkey))
 	hex.Encode(byt, pub.Pubkey)
 	return byt
 }
 
-func DecodePublicKey(data []byte) (*PublickKey, error) {
+func DecodePublicKey(data []byte) (PublickKey, error) {
 	pub := make([]byte, len(data)/2)
 	_, err := hex.Decode(pub, data)
 	if err != nil {
-		return nil, err
+		return PublickKey{}, err
 	}
-	return &PublickKey{
+	return PublickKey{
 		Pubkey: pub,
 	}, nil
 }
 
-func EncodePrivateKey(pri *PrivateKey) []byte {
+func EncodePrivateKey(pri PrivateKey) []byte {
 	byt := make([]byte, 2*len(pri.Prikey))
 	hex.Encode(byt, pri.Prikey)
 	return byt
 }
 
-func DecodePrivateKey(data []byte) (*PrivateKey, error) {
+func DecodePrivateKey(data []byte) (PrivateKey, error) {
 	pri := make([]byte, len(data)/2)
 	_, err := hex.Decode(pri, data)
 	if err != nil {
-		return nil, err
+		return PrivateKey{}, err
 	}
-	return &PrivateKey{
+	return PrivateKey{
 		Prikey: pri,
 	}, nil
 }

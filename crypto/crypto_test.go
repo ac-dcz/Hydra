@@ -1,16 +1,15 @@
 package crypto
 
 import (
-	"sync"
 	"testing"
 )
 
 func TestPK(t *testing.T) {
 	pri, pub := GenED25519Keys()
-	pubKey := &PublickKey{
+	pubKey := PublickKey{
 		Pubkey: pub,
 	}
-	priKey := &PrivateKey{
+	priKey := PrivateKey{
 		Prikey: pri,
 	}
 
@@ -31,7 +30,7 @@ func TestPK(t *testing.T) {
 	//2.Sign/Verify
 	msg := []byte("dczhahahah")
 	digest := NewHasher().Sum256(msg)
-	srvc := NewSigService(priKey, nil)
+	srvc := NewSigService(priKey, SecretShareKey{})
 	sig, err := srvc.RequestSignature(digest)
 	if err != nil {
 		t.Fatal(err)
@@ -43,9 +42,9 @@ func TestPK(t *testing.T) {
 
 func TestTsPk(t *testing.T) {
 	shares, pub := GenTSKeys(3, 4)
-	var shareKeys []*SecretShareKey
+	var shareKeys []SecretShareKey
 	for _, share := range shares {
-		shareKeys = append(shareKeys, &SecretShareKey{
+		shareKeys = append(shareKeys, SecretShareKey{
 			PubPoly:  pub,
 			PriShare: share,
 			N:        4,
@@ -54,42 +53,38 @@ func TestTsPk(t *testing.T) {
 	}
 	var (
 		cnt        = 0
-		shareSigch = make(chan *SignatureShare, 4)
+		shareSigch = make(chan SignatureShare, 4)
 	)
 	msg := []byte("dczhahahah")
 	digest := NewHasher().Sum256(msg)
-	wg := sync.WaitGroup{}
+
 	for i := 0; i < 4; i++ {
-		wg.Add(1)
-		go func(ind int) {
-			defer wg.Done()
+		ind := i
+		//1. Decode/Encode
+		byt, err := EncodeTSPartialKey(shareKeys[ind].PriShare)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("[%d] share %s\n", ind, byt)
 
-			//1. Decode/Encode
-			byt, err := EncodeTSPartialKey(shareKeys[ind].PriShare)
-			if err != nil {
-				t.Fatal(err)
-			}
-			t.Logf("[%d] share %s\n", ind, byt)
+		share, err := DecodeTSPartialKey(byt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if share.String() != shareKeys[ind].PriShare.String() {
+			t.Fatal("encode/decode error")
+		}
 
-			share, err := DecodeTSPartialKey(byt)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if share.String() != shareKeys[ind].PriShare.String() {
-				t.Fatal("encode/decode error")
-			}
-
-			//2. Sign
-			srvc := NewSigService(nil, shareKeys[ind])
-			sigShare, err := srvc.RequestTsSugnature(digest)
-			if err != nil {
-				t.Fatal(err)
-			}
-			shareSigch <- sigShare
-		}(i)
+		//2. Sign
+		srvc := NewSigService(PrivateKey{}, shareKeys[ind])
+		sigShare, err := srvc.RequestTsSugnature(digest)
+		if err != nil {
+			t.Fatal(err)
+		}
+		shareSigch <- sigShare
 	}
 
-	var sigs []*SignatureShare
+	var sigs []SignatureShare
 	for sig := range shareSigch {
 		sigs = append(sigs, sig)
 		cnt++
@@ -104,5 +99,4 @@ func TestTsPk(t *testing.T) {
 	if err := VerifyTs(shareKeys[0], digest, combineSig); err != nil {
 		t.Fatal(err)
 	}
-	wg.Wait()
 }
