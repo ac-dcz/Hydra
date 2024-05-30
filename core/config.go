@@ -8,6 +8,7 @@ type Parameters struct {
 	MinBlockDelay int  `json:"min_block_delay"`
 	DDos          bool `json:"ddos"`
 	Faults        int  `json:"faults"`
+	RetryDelay    int  `json:"retry_delay"`
 }
 
 var DefaultParameters = Parameters{
@@ -16,6 +17,7 @@ var DefaultParameters = Parameters{
 	MinBlockDelay: 0,
 	DDos:          false,
 	Faults:        0,
+	RetryDelay:    5_000,
 }
 
 type NodeID int

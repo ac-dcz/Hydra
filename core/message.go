@@ -1,18 +1,12 @@
 package core
 
 import (
+	"bytes"
+	"encoding/gob"
 	"lightDAG/crypto"
 	"lightDAG/pool"
 	"reflect"
 	"strconv"
-)
-
-const (
-	GRBCProposeType int = iota
-	EchoType
-	ReadyType
-	ElectType
-	PBCProposeType
 )
 
 type Message interface {
@@ -21,23 +15,39 @@ type Message interface {
 }
 
 type Block struct {
-	Author    crypto.PublickKey
+	Author    NodeID
 	Round     int
 	Batch     pool.Batch
-	Reference []crypto.Digest
+	Reference map[crypto.Digest]NodeID
+}
+
+func (b *Block) Encode() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	if err := gob.NewEncoder(buf).Encode(b); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (b *Block) Decode(data []byte) error {
+	buf := bytes.NewBuffer(data)
+	if err := gob.NewDecoder(buf).Decode(b); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (b *Block) Hash() crypto.Digest {
 
 	hasher := crypto.NewHasher()
-	hasher.Add(b.Author.Pubkey)
-	// strconv.AppendInt()
+	hasher.Add(strconv.AppendInt(nil, int64(b.Author), 2))
 	hasher.Add(strconv.AppendInt(nil, int64(b.Round), 2))
 	for _, tx := range b.Batch.Txs {
 		hasher.Add(tx)
 	}
-	for _, d := range b.Reference {
+	for d, id := range b.Reference {
 		hasher.Add(d[:])
+		hasher.Add(strconv.AppendInt(nil, int64(id), 2))
 	}
 
 	return hasher.Sum256(nil)
@@ -45,14 +55,14 @@ func (b *Block) Hash() crypto.Digest {
 
 // ProposeMsg
 type GRBCProposeMsg struct {
-	Author    crypto.PublickKey
+	Author    NodeID
 	Round     int
 	B         *Block
 	Signature crypto.Signature
 }
 
 func NewGRBCProposeMsg(
-	Author crypto.PublickKey,
+	Author NodeID,
 	Round int,
 	B *Block,
 	sigService *crypto.SigService,
@@ -72,14 +82,14 @@ func NewGRBCProposeMsg(
 	}
 }
 
-func (msg *GRBCProposeMsg) Verify() bool {
-	return msg.Signature.Verify(msg.Author, msg.Hash())
+func (msg *GRBCProposeMsg) Verify(committee Committee) bool {
+	return msg.Signature.Verify(committee.Name(msg.Author), msg.Hash())
 }
 
 func (msg *GRBCProposeMsg) Hash() crypto.Digest {
 
 	hasher := crypto.NewHasher()
-	hasher.Add(msg.Author.Pubkey)
+	hasher.Add(strconv.AppendInt(nil, int64(msg.Author), 2))
 	hasher.Add(strconv.AppendInt(nil, int64(msg.Round), 2))
 	digest := msg.B.Hash()
 	hasher.Add(digest[:])
@@ -92,16 +102,16 @@ func (msg *GRBCProposeMsg) MsgType() int {
 
 // EchoMsg
 type EchoMsg struct {
-	Author    crypto.PublickKey
-	Proposer  crypto.PublickKey
+	Author    NodeID
+	Proposer  NodeID
 	BlockHash crypto.Digest
 	Round     int
 	Signature crypto.Signature
 }
 
 func NewEchoMsg(
-	Author crypto.PublickKey,
-	Proposer crypto.PublickKey,
+	Author NodeID,
+	Proposer NodeID,
 	BlockHash crypto.Digest,
 	Round int,
 	sigService *crypto.SigService,
@@ -120,14 +130,14 @@ func NewEchoMsg(
 	return msg, nil
 }
 
-func (msg *EchoMsg) Verify() bool {
-	return msg.Signature.Verify(msg.Author, msg.Hash())
+func (msg *EchoMsg) Verify(committee Committee) bool {
+	return msg.Signature.Verify(committee.Name(msg.Author), msg.Hash())
 }
 
 func (msg *EchoMsg) Hash() crypto.Digest {
 	hasher := crypto.NewHasher()
-	hasher.Add(msg.Author.Pubkey)
-	hasher.Add(msg.Proposer.Pubkey)
+	hasher.Add(strconv.AppendInt(nil, int64(msg.Author), 2))
+	hasher.Add(strconv.AppendInt(nil, int64(msg.Proposer), 2))
 	hasher.Add(msg.BlockHash[:])
 	hasher.Add(strconv.AppendInt(nil, int64(msg.Round), 2))
 	return hasher.Sum256(nil)
@@ -139,16 +149,16 @@ func (msg *EchoMsg) MsgType() int {
 
 // ReadyMsg
 type ReadyMsg struct {
-	Author    crypto.PublickKey
-	Proposer  crypto.PublickKey
+	Author    NodeID
+	Proposer  NodeID
 	BlockHash crypto.Digest
 	Round     int
 	Signature crypto.Signature
 }
 
 func NewReadyMsg(
-	Author crypto.PublickKey,
-	Proposer crypto.PublickKey,
+	Author NodeID,
+	Proposer NodeID,
 	BlockHash crypto.Digest,
 	Round int,
 	sigService *crypto.SigService,
@@ -167,14 +177,14 @@ func NewReadyMsg(
 	return msg, nil
 }
 
-func (msg *ReadyMsg) Verify() bool {
-	return msg.Signature.Verify(msg.Author, msg.Hash())
+func (msg *ReadyMsg) Verify(committee Committee) bool {
+	return msg.Signature.Verify(committee.Name(msg.Author), msg.Hash())
 }
 
 func (msg *ReadyMsg) Hash() crypto.Digest {
 	hasher := crypto.NewHasher()
-	hasher.Add(msg.Author.Pubkey)
-	hasher.Add(msg.Proposer.Pubkey)
+	hasher.Add(strconv.AppendInt(nil, int64(msg.Author), 2))
+	hasher.Add(strconv.AppendInt(nil, int64(msg.Proposer), 2))
 	hasher.Add(msg.BlockHash[:])
 	hasher.Add(strconv.AppendInt(nil, int64(msg.Round), 2))
 	return hasher.Sum256(nil)
@@ -186,14 +196,14 @@ func (msg *ReadyMsg) MsgType() int {
 
 // PBCProposeMsg
 type PBCProposeMsg struct {
-	Author    crypto.PublickKey
+	Author    NodeID
 	Round     int
 	B         *Block
 	Signature crypto.Signature
 }
 
 func NewPBCProposeMsg(
-	Author crypto.PublickKey,
+	Author NodeID,
 	Round int,
 	B *Block,
 	sigService *crypto.SigService,
@@ -213,14 +223,14 @@ func NewPBCProposeMsg(
 	}
 }
 
-func (msg *PBCProposeMsg) Verify() bool {
-	return msg.Signature.Verify(msg.Author, msg.Hash())
+func (msg *PBCProposeMsg) Verify(committee Committee) bool {
+	return msg.Signature.Verify(committee.Name(msg.Author), msg.Hash())
 }
 
 func (msg *PBCProposeMsg) Hash() crypto.Digest {
 
 	hasher := crypto.NewHasher()
-	hasher.Add(msg.Author.Pubkey)
+	hasher.Add(strconv.AppendInt(nil, int64(msg.Author), 2))
 	hasher.Add(strconv.AppendInt(nil, int64(msg.Round), 2))
 	digest := msg.B.Hash()
 	hasher.Add(digest[:])
@@ -233,12 +243,12 @@ func (msg *PBCProposeMsg) MsgType() int {
 
 // ElectMsg
 type ElectMsg struct {
-	Author   crypto.PublickKey
+	Author   NodeID
 	Round    int
 	SigShare crypto.SignatureShare
 }
 
-func NewElectMsg(Author crypto.PublickKey, Round int, sigService *crypto.SigService) (*ElectMsg, error) {
+func NewElectMsg(Author NodeID, Round int, sigService *crypto.SigService) (*ElectMsg, error) {
 	msg := &ElectMsg{
 		Author: Author,
 		Round:  Round,
@@ -258,7 +268,7 @@ func (msg *ElectMsg) Verify() bool {
 
 func (msg *ElectMsg) Hash() crypto.Digest {
 	hasher := crypto.NewHasher()
-	hasher.Add(msg.Author.Pubkey)
+	hasher.Add(strconv.AppendInt(nil, int64(msg.Author), 2))
 	hasher.Add(strconv.AppendInt(nil, int64(msg.Round), 2))
 	return hasher.Sum256(nil)
 }
@@ -266,6 +276,62 @@ func (msg *ElectMsg) Hash() crypto.Digest {
 func (msg *ElectMsg) MsgType() int {
 	return ElectType
 }
+
+// RequestBlock
+type RequestBlockMsg struct {
+	Author    NodeID
+	BlockHash crypto.Digest
+	Signature crypto.Signature
+	ReqID     int
+	Ts        int64
+}
+
+func NewRequestBlock(
+	Author NodeID,
+	BlockHash crypto.Digest,
+	ReqID int,
+	Ts int64,
+	sigService *crypto.SigService,
+) (*RequestBlockMsg, error) {
+	msg := &RequestBlockMsg{
+		Author:    Author,
+		BlockHash: BlockHash,
+		ReqID:     ReqID,
+		Ts:        Ts,
+	}
+	sig, err := sigService.RequestSignature(msg.Hash())
+	if err != nil {
+		return nil, err
+	}
+	msg.Signature = sig
+	return msg, nil
+}
+
+func (msg *RequestBlockMsg) Verify(committee Committee) bool {
+	return msg.Signature.Verify(committee.Name(msg.Author), msg.Hash())
+}
+
+func (msg *RequestBlockMsg) Hash() crypto.Digest {
+	hasher := crypto.NewHasher()
+	hasher.Add(strconv.AppendInt(nil, int64(msg.Author), 2))
+	hasher.Add(strconv.AppendInt(nil, int64(msg.ReqID), 2))
+	hasher.Add(msg.BlockHash[:])
+	return hasher.Sum256(nil)
+}
+
+func (msg *RequestBlockMsg) MsgType() int {
+	return ReplyBlockType
+}
+
+const (
+	GRBCProposeType int = iota
+	EchoType
+	ReadyType
+	ElectType
+	PBCProposeType
+	RequestBlockType
+	ReplyBlockType
+)
 
 var DefaultMsgValues = map[int]reflect.Type{
 	GRBCProposeType: reflect.TypeOf(&GRBCProposeMsg{}),
