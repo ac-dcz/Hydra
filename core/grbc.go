@@ -31,6 +31,10 @@ func (g *GRBC) processReady(echo *ReadyMsg) {
 
 }
 
+func (g *GRBC) SetGrade(grade int) {
+	g.grade.Store(int32(grade))
+}
+
 func (g *GRBC) Grade() int {
 	return int(g.grade.Load())
 }
