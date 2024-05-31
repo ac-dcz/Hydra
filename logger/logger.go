@@ -8,11 +8,16 @@ import (
 
 type Level int
 
-var (
+const (
 	InfoLevel  Level = 0x1
 	DebugLevel Level = 0x2
 	ErrorLevel Level = 0x4
 	WarnLevel  Level = 0x8
+)
+
+const (
+	TestLevel   Level = InfoLevel | DebugLevel | ErrorLevel | WarnLevel
+	DeployLevel Level = InfoLevel | ErrorLevel | WarnLevel
 )
 
 const LevelNum = 4

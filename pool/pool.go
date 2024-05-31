@@ -8,7 +8,6 @@ import (
 type txQueue struct {
 	queue        []Transaction
 	batchChannel chan Batch
-	txChannel    <-chan Transaction
 	wind         int // write index
 	rind         int // read index
 	nums         int
@@ -22,13 +21,11 @@ type txQueue struct {
 func newTxQueue(
 	maxQueueSize, batchSize int,
 	batchChannel chan Batch,
-	txChannel <-chan Transaction,
 	N, Id int,
 ) *txQueue {
 	r := &txQueue{
 		queue:        make([]Transaction, maxQueueSize),
 		batchChannel: batchChannel,
-		txChannel:    txChannel,
 		wind:         0,
 		rind:         -1,
 		nums:         0,
@@ -41,9 +38,9 @@ func newTxQueue(
 	return r
 }
 
-func (q *txQueue) run() {
+func (q *txQueue) run(txChannel <-chan Transaction) {
 
-	for tx := range q.txChannel {
+	for tx := range txChannel {
 		if q.wind == q.rind {
 			logger.Warn.Println("Transaction pool is full")
 			return
@@ -112,35 +109,58 @@ func (maker *txMaker) run(txChannel chan<- Transaction) {
 }
 
 type Pool struct {
-	parameters Parameters
-	queue      *txQueue
-	maker      *txMaker
+	parameters   Parameters
+	queue        *txQueue
+	maker        *txMaker
+	txChannel    chan Transaction
+	batchChannel chan Batch
 }
 
 func NewPool(parameters Parameters, N, Id int) *Pool {
-	p := &Pool{
-		parameters: parameters,
-	}
+
+	logger.Info.Printf(
+		"Transaction pool queue capacity set to %d \n",
+		parameters.MaxQueueSize,
+	)
+	logger.Info.Printf(
+		"Transaction pool tx size set to %d \n",
+		parameters.TxSize,
+	)
+	logger.Info.Printf(
+		"Transaction pool batch size set to %d \n",
+		parameters.BatchSize,
+	)
+	logger.Info.Printf(
+		"Transaction pool tx rate set to %d \n",
+		parameters.Rate,
+	)
+
 	batchChannel, txChannel := make(chan Batch, 1_000), make(chan Transaction, 10_000)
+	p := &Pool{
+		parameters:   parameters,
+		txChannel:    txChannel,
+		batchChannel: batchChannel,
+	}
 
 	p.queue = newTxQueue(
 		parameters.MaxQueueSize,
 		parameters.BatchSize,
 		batchChannel,
-		txChannel,
 		N,
 		Id,
 	)
-	go p.queue.run()
 
 	p.maker = newTxMaker(
 		parameters.TxSize,
 		parameters.Rate,
 	)
 
-	go p.maker.run(txChannel)
-
 	return p
+}
+
+func (p *Pool) Run() {
+	go p.queue.run(p.txChannel)
+	go p.maker.run(p.txChannel)
 }
 
 func (p *Pool) GetBatch() Batch {

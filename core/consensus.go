@@ -16,20 +16,17 @@ func Consensus(
 	committee Committee,
 	parameters Parameters,
 	txpool *pool.Pool,
-	store store.Store,
+	store *store.Store,
 	sigService *crypto.SigService,
+	commitChannel chan<- *Block,
 ) error {
 	logger.Info.Printf(
-		"Consensus NetWorkDelay delay set to %d ms \n",
-		parameters.NetwrokDelay,
+		"Consensus Node ID: %d\n",
+		id,
 	)
 	logger.Info.Printf(
-		"Consensus min block delay set to %d ms \n",
-		parameters.MinBlockDelay,
-	)
-	logger.Info.Printf(
-		"Consensus retry delay set to %d ms \n",
-		parameters.RetryDelay,
+		"Consensus committee: %+v\n",
+		committee,
 	)
 	logger.Info.Printf(
 		"Consensus DDos: %v, Faults: %v \n",
@@ -72,7 +69,7 @@ func Consensus(
 	time.Sleep(time.Millisecond * time.Duration(parameters.SyncTimeout))
 
 	//Step 3: start protocol
-	corer := NewCore(id, committee, parameters, txpool, transmitor, store, sigService)
+	corer := NewCore(id, committee, parameters, txpool, transmitor, store, sigService, commitChannel)
 
 	go corer.Run()
 

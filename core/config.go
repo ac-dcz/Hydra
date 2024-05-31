@@ -43,6 +43,10 @@ func (c Committee) ID(name crypto.PublickKey) NodeID {
 	return NONE
 }
 
+func (c Committee) Size() int {
+	return len(c.Authorities)
+}
+
 func (c Committee) Name(id NodeID) crypto.PublickKey {
 	a := c.Authorities[id]
 	return a.Name

@@ -29,14 +29,14 @@ type Retriever struct {
 	loopBackCnts    map[int]int
 	reqChannel      chan *reqRetrieve
 	sigService      *crypto.SigService
-	store           store.Store
+	store           *store.Store
 	parameters      Parameters
 	loopBackChannel chan<- *Block
 }
 
 func NewRetriever(
 	nodeID NodeID,
-	store store.Store,
+	store *store.Store,
 	transmitor *Transmitor,
 	sigService *crypto.SigService,
 	parameters Parameters,

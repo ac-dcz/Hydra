@@ -21,10 +21,11 @@ type Core struct {
 	txpool              *pool.Pool
 	transmitor          *Transmitor
 	sigService          *crypto.SigService
-	store               store.Store
+	store               *store.Store
 	retriever           *Retriever
 	loopBackChannel     chan *Block
 	grbcCallBackChannel chan *callBackReq
+	commitChannel       chan<- *Block
 	grbcInstances       map[int]map[NodeID]*GRBC
 	blockDigests        map[crypto.Digest]NodeID         // store hash of block that has received
 	localDAG            map[int]map[NodeID]crypto.Digest // local DAG
@@ -37,8 +38,9 @@ func NewCore(
 	parameters Parameters,
 	txpool *pool.Pool,
 	transmitor *Transmitor,
-	store store.Store,
+	store *store.Store,
 	sigService *crypto.SigService,
+	commitChannel chan<- *Block,
 ) *Core {
 
 	loopBackChannel := make(chan *Block, 1_000)
@@ -54,6 +56,7 @@ func NewCore(
 		store:               store,
 		loopBackChannel:     loopBackChannel,
 		grbcCallBackChannel: grbcCallBackChannel,
+		commitChannel:       commitChannel,
 		grbcInstances:       make(map[int]map[NodeID]*GRBC),
 		blockDigests:        make(map[crypto.Digest]NodeID),
 		localDAG:            make(map[int]map[NodeID]crypto.Digest),
