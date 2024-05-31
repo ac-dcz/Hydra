@@ -47,7 +47,7 @@ func Consensus(
 	go sender.Run()
 	go receiver.Run()
 
-	transmitor := NewTransmitor(sender, receiver, DefaultMsgValues, parameters, committee)
+	transmitor := NewTransmitor(sender, receiver, DefaultMsgTypes, parameters, committee)
 
 	//Step 2: Waiting for all nodes to be online
 	logger.Info.Println("Waiting for all nodes to be online...")

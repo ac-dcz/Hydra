@@ -20,17 +20,18 @@ type reqRetrieve struct {
 }
 
 type Retriever struct {
-	nodeID         NodeID
-	transmitor     *Transmitor
-	cnt            int
-	pendding       map[crypto.Digest]struct{} //dealing request
-	requests       map[int]*RequestBlockMsg   //Request
-	loopBackBlocks map[int]crypto.Digest      // loopback deal block
-	loopBackCnts   map[int]int
-	reqChannel     chan *reqRetrieve
-	sigService     *crypto.SigService
-	store          store.Store
-	parameters     Parameters
+	nodeID          NodeID
+	transmitor      *Transmitor
+	cnt             int
+	pendding        map[crypto.Digest]struct{} //dealing request
+	requests        map[int]*RequestBlockMsg   //Request
+	loopBackBlocks  map[int]crypto.Digest      // loopback deal block
+	loopBackCnts    map[int]int
+	reqChannel      chan *reqRetrieve
+	sigService      *crypto.SigService
+	store           store.Store
+	parameters      Parameters
+	loopBackChannel chan<- *Block
 }
 
 func NewRetriever(
@@ -39,20 +40,22 @@ func NewRetriever(
 	transmitor *Transmitor,
 	sigService *crypto.SigService,
 	parameters Parameters,
+	loopBackChannel chan<- *Block,
 ) *Retriever {
 
 	r := &Retriever{
-		nodeID:         nodeID,
-		cnt:            0,
-		pendding:       make(map[crypto.Digest]struct{}),
-		requests:       make(map[int]*RequestBlockMsg),
-		loopBackBlocks: make(map[int]crypto.Digest),
-		loopBackCnts:   make(map[int]int),
-		reqChannel:     make(chan *reqRetrieve, 1_00),
-		store:          store,
-		sigService:     sigService,
-		transmitor:     transmitor,
-		parameters:     parameters,
+		nodeID:          nodeID,
+		cnt:             0,
+		pendding:        make(map[crypto.Digest]struct{}),
+		requests:        make(map[int]*RequestBlockMsg),
+		loopBackBlocks:  make(map[int]crypto.Digest),
+		loopBackCnts:    make(map[int]int),
+		reqChannel:      make(chan *reqRetrieve, 1_00),
+		store:           store,
+		sigService:      sigService,
+		transmitor:      transmitor,
+		parameters:      parameters,
+		loopBackChannel: loopBackChannel,
 	}
 	go r.run()
 

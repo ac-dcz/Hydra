@@ -372,7 +372,7 @@ const (
 	ReplyBlockType
 )
 
-var DefaultMsgValues = map[int]reflect.Type{
+var DefaultMsgTypes = map[int]reflect.Type{
 	GRBCProposeType:  reflect.TypeOf(&GRBCProposeMsg{}),
 	EchoType:         reflect.TypeOf(&EchoMsg{}),
 	ReadyType:        reflect.TypeOf(&ReadyMsg{}),
