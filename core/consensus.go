@@ -24,10 +24,10 @@ func Consensus(
 		"Consensus Node ID: %d\n",
 		id,
 	)
-	logger.Info.Printf(
-		"Consensus committee: %+v\n",
-		committee,
-	)
+	// logger.Info.Printf(
+	// 	"Consensus committee: %+v\n",
+	// 	committee,
+	// )
 	logger.Info.Printf(
 		"Consensus DDos: %v, Faults: %v \n",
 		parameters.DDos, parameters.Faults,

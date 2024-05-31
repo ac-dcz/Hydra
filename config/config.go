@@ -188,7 +188,7 @@ func GenDefaultCommittee(n int) (core.Committee, []crypto.PrivateKey, []crypto.S
 	committee := core.Committee{
 		Authorities: make(map[core.NodeID]core.Authority),
 	}
-	priKeys, shareKeys := make([]crypto.PrivateKey, n), make([]crypto.SecretShareKey, n)
+	priKeys, shareKeys := make([]crypto.PrivateKey, 0), make([]crypto.SecretShareKey, 0)
 	for i := 0; i < n; i++ {
 		priKey, pubKey := crypto.GenED25519Keys()
 		committee.Authorities[core.NodeID(i)] = core.Authority{

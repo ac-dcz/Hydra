@@ -370,14 +370,15 @@ const (
 	PBCProposeType
 	RequestBlockType
 	ReplyBlockType
+	TotalNums
 )
 
 var DefaultMsgTypes = map[int]reflect.Type{
-	GRBCProposeType:  reflect.TypeOf(&GRBCProposeMsg{}),
-	EchoType:         reflect.TypeOf(&EchoMsg{}),
-	ReadyType:        reflect.TypeOf(&ReadyMsg{}),
-	ElectType:        reflect.TypeOf(&ElectMsg{}),
-	PBCProposeType:   reflect.TypeOf(&PBCProposeMsg{}),
-	RequestBlockType: reflect.TypeOf(&RequestBlockMsg{}),
-	ReplyBlockType:   reflect.TypeOf(&ReplyBlockMsg{}),
+	GRBCProposeType:  reflect.TypeOf(GRBCProposeMsg{}),
+	EchoType:         reflect.TypeOf(EchoMsg{}),
+	ReadyType:        reflect.TypeOf(ReadyMsg{}),
+	ElectType:        reflect.TypeOf(ElectMsg{}),
+	PBCProposeType:   reflect.TypeOf(PBCProposeMsg{}),
+	RequestBlockType: reflect.TypeOf(RequestBlockMsg{}),
+	ReplyBlockType:   reflect.TypeOf(ReplyBlockMsg{}),
 }

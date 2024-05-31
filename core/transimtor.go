@@ -78,7 +78,7 @@ func NewTransmitor(
 func (tr *Transmitor) Send(from, to NodeID, msg Message) error {
 	//Address
 	var addr []string
-	if to != NONE {
+	if to == NONE {
 		addr = tr.committee.BroadCast(from)
 	} else {
 		addr = append(addr, tr.committee.Address(to))
