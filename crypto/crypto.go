@@ -107,22 +107,22 @@ const (
 )
 
 type SigService struct {
-	pri      PrivateKey
-	sharePri SecretShareKey
+	PriKey   PrivateKey
+	ShareKey SecretShareKey
 	reqCh    chan *sigReq
 }
 
 func NewSigService(pri PrivateKey, share SecretShareKey) *SigService {
 	srvc := &SigService{
-		pri:      pri,
-		sharePri: share,
+		PriKey:   pri,
+		ShareKey: share,
 		reqCh:    make(chan *sigReq, 100),
 	}
 	go func() {
 		for req := range srvc.reqCh {
 			switch req.typ {
 			case SIG:
-				sig := ed25519.Sign(srvc.pri.Prikey, req.digest[:])
+				sig := ed25519.Sign(srvc.PriKey.Prikey, req.digest[:])
 				req.ret = Signature{
 					Sig: sig,
 				}
@@ -130,7 +130,7 @@ func NewSigService(pri PrivateKey, share SecretShareKey) *SigService {
 			case SHARE:
 				go func(r *sigReq) {
 					suite := bn256.NewSuite()
-					partialSig, err := tbls.Sign(suite, srvc.sharePri.PriShare, r.digest[:])
+					partialSig, err := tbls.Sign(suite, srvc.ShareKey.PriShare, r.digest[:])
 					r.ret = SignatureShare{
 						partialSig,
 					}

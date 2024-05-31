@@ -5,6 +5,7 @@ import (
 	"lightDAG/logger"
 	"lightDAG/pool"
 	"lightDAG/store"
+	"time"
 )
 
 const (
@@ -23,6 +24,8 @@ type Core struct {
 	sigService          *crypto.SigService
 	store               *store.Store
 	retriever           *Retriever
+	eletor              *Elector
+	commitor            *Commitor
 	loopBackChannel     chan *Block
 	grbcCallBackChannel chan *callBackReq
 	commitChannel       chan<- *Block
@@ -64,6 +67,7 @@ func NewCore(
 	}
 
 	corer.retriever = NewRetriever(nodeID, store, transmitor, sigService, parameters, loopBackChannel)
+	corer.eletor = NewElector(sigService, committee)
 
 	return corer
 }
@@ -287,6 +291,7 @@ func (corer *Core) advanceRound(round int) error {
 				return err
 			} else {
 				corer.transmitor.Send(corer.nodeID, NONE, propose)
+				time.Sleep(time.Millisecond * time.Duration(corer.parameters.MinBlockDelay))
 				corer.transmitor.RecvChannel() <- propose
 			}
 		} else {
@@ -294,6 +299,9 @@ func (corer *Core) advanceRound(round int) error {
 				return err
 			} else {
 				corer.transmitor.Send(corer.nodeID, NONE, propose)
+				time.Sleep(time.Millisecond * time.Duration(corer.parameters.MinBlockDelay))
+				// invoke elect phase
+				corer.invokeElect(round)
 				corer.transmitor.RecvChannel() <- propose
 			}
 		}
@@ -302,8 +310,31 @@ func (corer *Core) advanceRound(round int) error {
 	return nil
 }
 
+func (corer *Core) invokeElect(round int) error {
+	if round%WaveRound == 1 {
+		elect, err := NewElectMsg(
+			corer.nodeID,
+			round,
+			corer.sigService,
+		)
+		if err != nil {
+			return err
+		}
+		corer.transmitor.Send(corer.nodeID, NONE, elect)
+		corer.transmitor.RecvChannel() <- elect
+	}
+	return nil
+}
+
 func (corer *Core) handleElect(elect *ElectMsg) error {
 	logger.Debug.Printf("procesing elect wave %d node %d \n", elect.Round%WaveRound, elect.Author)
+
+	if leader, err := corer.eletor.Add(elect); err != nil {
+		return err
+	} else {
+		//notify to commit
+		corer.commitor.Push(elect.Round%WaveRound, leader)
+	}
 
 	return nil
 }

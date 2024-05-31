@@ -268,7 +268,7 @@ func (msg *ElectMsg) Verify() bool {
 
 func (msg *ElectMsg) Hash() crypto.Digest {
 	hasher := crypto.NewHasher()
-	hasher.Add(strconv.AppendInt(nil, int64(msg.Author), 2))
+	// hasher.Add(strconv.AppendInt(nil, int64(msg.Author), 2))
 	hasher.Add(strconv.AppendInt(nil, int64(msg.Round), 2))
 	return hasher.Sum256(nil)
 }
