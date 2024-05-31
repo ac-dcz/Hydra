@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type TxQueue struct {
+type txQueue struct {
 	queue        []Transaction
 	batchChannel chan Batch
 	txChannel    <-chan Transaction
@@ -19,13 +19,13 @@ type TxQueue struct {
 	bcnt         int
 }
 
-func NewTxQueue(
+func newTxQueue(
 	maxQueueSize, batchSize int,
 	batchChannel chan Batch,
 	txChannel <-chan Transaction,
 	N, Id int,
-) *TxQueue {
-	r := &TxQueue{
+) *txQueue {
+	r := &txQueue{
 		queue:        make([]Transaction, maxQueueSize),
 		batchChannel: batchChannel,
 		txChannel:    txChannel,
@@ -41,7 +41,7 @@ func NewTxQueue(
 	return r
 }
 
-func (q *TxQueue) Run() {
+func (q *txQueue) run() {
 
 	for tx := range q.txChannel {
 		if q.wind == q.rind {
@@ -57,7 +57,7 @@ func (q *TxQueue) Run() {
 	}
 }
 
-func (q *TxQueue) make() {
+func (q *txQueue) make() {
 	batch := Batch{
 		ID: q.Id + q.N*q.bcnt,
 	}
@@ -75,7 +75,7 @@ func (q *TxQueue) make() {
 	q.batchChannel <- batch
 }
 
-func (q *TxQueue) Get() Batch {
+func (q *txQueue) get() Batch {
 	if len(q.batchChannel) > 0 {
 		return <-q.batchChannel
 	} else {
@@ -88,19 +88,19 @@ func (q *TxQueue) Get() Batch {
 const PRECISION = 20 // Sample precision.
 const BURST_DURATION = 1000 / PRECISION
 
-type BatchMaker struct {
+type txMaker struct {
 	txSize int
 	rate   int
 }
 
-func NewBatchMaker(txSize, rate int) *BatchMaker {
-	return &BatchMaker{
+func newTxMaker(txSize, rate int) *txMaker {
+	return &txMaker{
 		txSize: txSize,
 		rate:   rate,
 	}
 }
 
-func (maker *BatchMaker) Run(txChannel chan<- Transaction) {
+func (maker *txMaker) run(txChannel chan<- Transaction) {
 	ticker := time.NewTicker(time.Millisecond * BURST_DURATION)
 	nums := maker.rate / PRECISION
 	for range ticker.C {
@@ -113,8 +113,8 @@ func (maker *BatchMaker) Run(txChannel chan<- Transaction) {
 
 type Pool struct {
 	parameters Parameters
-	queue      *TxQueue
-	maker      *BatchMaker
+	queue      *txQueue
+	maker      *txMaker
 }
 
 func NewPool(parameters Parameters, N, Id int) *Pool {
@@ -123,7 +123,7 @@ func NewPool(parameters Parameters, N, Id int) *Pool {
 	}
 	batchChannel, txChannel := make(chan Batch, 1_000), make(chan Transaction, 10_000)
 
-	p.queue = NewTxQueue(
+	p.queue = newTxQueue(
 		parameters.MaxQueueSize,
 		parameters.BatchSize,
 		batchChannel,
@@ -131,18 +131,18 @@ func NewPool(parameters Parameters, N, Id int) *Pool {
 		N,
 		Id,
 	)
-	go p.queue.Run()
+	go p.queue.run()
 
-	p.maker = NewBatchMaker(
+	p.maker = newTxMaker(
 		parameters.TxSize,
 		parameters.Rate,
 	)
 
-	go p.maker.Run(txChannel)
+	go p.maker.run(txChannel)
 
 	return p
 }
 
 func (p *Pool) GetBatch() Batch {
-	return p.queue.Get()
+	return p.queue.get()
 }
