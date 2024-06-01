@@ -66,12 +66,12 @@ func NewCore(
 
 	corer.retriever = NewRetriever(nodeID, store, transmitor, sigService, parameters, loopBackChannel)
 	corer.eletor = NewElector(sigService, committee)
-	corer.commitor = NewCommitor(corer.eletor, corer.localDAG, commitChannel)
+	corer.commitor = NewCommitor(corer.eletor, corer.localDAG, store, commitChannel)
 
 	return corer
 }
 
-func (corer *Core) storeBlock(block *Block) error {
+func storeBlock(corer *Core, block *Block) error {
 	key := block.Hash()
 	if val, err := block.Encode(); err != nil {
 		return err
@@ -79,6 +79,18 @@ func (corer *Core) storeBlock(block *Block) error {
 		corer.store.Write(key[:], val)
 		return nil
 	}
+}
+
+func getBlock(corer *Core, digest crypto.Digest) (*Block, error) {
+	block := &Block{}
+	data, err := corer.store.Read(digest[:])
+	if err != nil {
+		return nil, err
+	}
+	if err := block.Decode(data); err != nil {
+		return nil, err
+	}
+	return block, nil
 }
 
 func (corer *Core) getGRBCInstance(node NodeID, round int) *GRBC {
@@ -170,7 +182,7 @@ func (corer *Core) handleGRBCPropose(propose *GRBCProposeMsg) error {
 	}
 
 	//Step 2: store Block
-	if err := corer.storeBlock(propose.B); err != nil {
+	if err := storeBlock(corer, propose.B); err != nil {
 		return err
 	}
 
@@ -226,7 +238,7 @@ func (corer *Core) handlePBCPropose(propose *PBCProposeMsg) error {
 	}
 
 	//Step 2: store Block
-	if err := corer.storeBlock(propose.B); err != nil {
+	if err := storeBlock(corer, propose.B); err != nil {
 		return err
 	}
 
@@ -239,15 +251,15 @@ func (corer *Core) handlePBCPropose(propose *PBCProposeMsg) error {
 	}
 
 	//Step 4
-	corer.handleOutPut(propose.B.Round, propose.B.Author, propose.B.Hash())
+	corer.handleOutPut(propose.B.Round, propose.B.Author, propose.B.Hash(), propose.B.Reference)
 
 	return nil
 }
 
-func (corer *Core) handleOutPut(round int, node NodeID, digest crypto.Digest) error {
+func (corer *Core) handleOutPut(round int, node NodeID, digest crypto.Digest, references map[crypto.Digest]NodeID) error {
 	logger.Debug.Printf("procesing output round %d node %d \n", round, node)
 
-	corer.localDAG.ReceiveBlock(round, node, digest)
+	corer.localDAG.ReceiveBlock(round, node, digest, references)
 
 	if n, grade2nums := corer.localDAG.GetReceivedBlockNums(round); n >= corer.committee.HightThreshold() {
 		if round%WaveRound == 0 {
@@ -311,7 +323,12 @@ func (corer *Core) handleElect(elect *ElectMsg) error {
 	if leader, err := corer.eletor.Add(elect); err != nil {
 		return err
 	} else if leader != NONE {
-		corer.commitor.Push(elect.Round%WaveRound, leader)
+
+		//is grade two?
+		if corer.localDAG.GetGrade(elect.Round, int(leader)) == GradeTwo {
+			corer.commitor.NotifyToCommit(elect.Round % WaveRound)
+		}
+
 	}
 
 	return nil
@@ -342,8 +359,8 @@ func (corer *Core) handleReplyBlock(reply *ReplyBlockMsg) error {
 		corer.getGRBCInstance(reply.B.Author, reply.B.Round).SetGrade(GradeOne)
 	}
 
-	corer.storeBlock(reply.B)
-	corer.handleOutPut(reply.B.Round, reply.B.Author, reply.B.Hash())
+	storeBlock(corer, reply.B)
+	corer.handleOutPut(reply.B.Round, reply.B.Author, reply.B.Hash(), reply.B.Reference)
 
 	go corer.retriever.processReply(reply)
 
@@ -358,7 +375,7 @@ func (corer *Core) handleLoopBack(block *Block) error {
 		instance := corer.getGRBCInstance(block.Author, block.Round)
 		go instance.processPropose(block)
 	} else {
-		return corer.handleOutPut(block.Round, block.Author, block.Hash())
+		return corer.handleOutPut(block.Round, block.Author, block.Hash(), block.Reference)
 	}
 
 	return nil
@@ -366,9 +383,12 @@ func (corer *Core) handleLoopBack(block *Block) error {
 
 func (corer *Core) handleCallBack(req *callBackReq) error {
 	//Update grade
-
+	block, err := getBlock(corer, req.digest)
+	if err != nil {
+		panic(err)
+	}
 	if req.tag == NotifyOutPut {
-		return corer.handleOutPut(req.round, req.nodeID, req.digest)
+		return corer.handleOutPut(block.Round, block.Author, req.digest, block.Reference)
 	}
 	return nil
 }
