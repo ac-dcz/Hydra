@@ -66,7 +66,7 @@ func NewCore(
 
 	corer.retriever = NewRetriever(nodeID, store, transmitor, sigService, parameters, loopBackChannel)
 	corer.eletor = NewElector(sigService, committee)
-	corer.commitor = NewCommitor(corer.eletor, corer.localDAG, store, commitChannel)
+	corer.commitor = NewCommitor(corer.eletor, corer.localDAG, store, commitChannel, committee.Size())
 
 	return corer
 }
@@ -138,7 +138,7 @@ func (corer *Core) generatorBlock(round int) *Block {
 					Reference: make(map[crypto.Digest]NodeID),
 				}
 			} else {
-				reference := corer.localDAG.GetReceivedBlock(round - 1)
+				reference := corer.localDAG.GetRoundReceivedBlock(round - 1)
 				if len(reference) >= corer.committee.HightThreshold() {
 					block = &Block{
 						Author:    corer.nodeID,
@@ -149,9 +149,9 @@ func (corer *Core) generatorBlock(round int) *Block {
 				}
 			}
 		} else { // PBC round
-			_, grade2nums := corer.localDAG.GetReceivedBlockNums(round)
+			_, grade2nums := corer.localDAG.GetRoundReceivedBlockNums(round)
 			if grade2nums >= corer.committee.HightThreshold() {
-				reference := corer.localDAG.GetReceivedBlock(round - 1)
+				reference := corer.localDAG.GetRoundReceivedBlock(round - 1)
 				block = &Block{
 					Author:    corer.nodeID,
 					Round:     round,
@@ -261,7 +261,7 @@ func (corer *Core) handleOutPut(round int, node NodeID, digest crypto.Digest, re
 
 	corer.localDAG.ReceiveBlock(round, node, digest, references)
 
-	if n, grade2nums := corer.localDAG.GetReceivedBlockNums(round); n >= corer.committee.HightThreshold() {
+	if n, grade2nums := corer.localDAG.GetRoundReceivedBlockNums(round); n >= corer.committee.HightThreshold() {
 		if round%WaveRound == 0 {
 			if grade2nums >= corer.committee.HightThreshold() {
 				return corer.advanceRound(round + 1)
