@@ -7,10 +7,17 @@ import (
 	"sync/atomic"
 )
 
+const (
+	NotifyOutPut = iota
+	UpdateGrade
+)
+
 type callBackReq struct {
 	digest crypto.Digest
 	nodeID NodeID
 	round  int
+	grade  int
+	tag    int
 }
 
 type GRBC struct {
@@ -115,6 +122,8 @@ func (g *GRBC) processEcho(echo *EchoMsg) {
 				nodeID: g.proposer,
 				digest: echo.BlockHash,
 				round:  g.round,
+				grade:  GradeOne,
+				tag:    NotifyOutPut,
 			}
 		})
 	}
@@ -149,10 +158,21 @@ func (g *GRBC) processReady(ready *ReadyMsg) {
 				nodeID: g.proposer,
 				digest: ready.BlockHash,
 				round:  g.round,
+				grade:  GradeOne,
+				tag:    NotifyOutPut,
 			}
 		})
 	} else if cnt == int32(g.committee.HightThreshold()) {
 		g.grade.Store(GradeTwo)
+
+		//TODO: update grade
+		g.callBackChannel <- &callBackReq{
+			nodeID: g.proposer,
+			digest: ready.BlockHash,
+			round:  ready.Round,
+			grade:  GradeTwo,
+			tag:    UpdateGrade,
+		}
 	}
 
 }

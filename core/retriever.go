@@ -16,7 +16,7 @@ type reqRetrieve struct {
 	typ    int
 	reqID  int
 	digest []crypto.Digest
-	nodeid []NodeID
+	nodeID NodeID
 }
 
 type Retriever struct {
@@ -77,7 +77,7 @@ func (r *Retriever) run() {
 						request, _ := NewRequestBlock(r.nodeID, req.digest[i], r.cnt, time.Now().UnixMilli(), r.sigService)
 
 						logger.Debug.Printf("sending request for miss block reqID %d \n", req.reqID)
-						_ = r.transmitor.Send(request.Author, req.nodeid[i], request)
+						_ = r.transmitor.Send(request.Author, req.nodeID, request)
 						r.requests[request.ReqID] = request
 						r.cnt++
 					}
@@ -118,11 +118,11 @@ func (r *Retriever) run() {
 	}
 }
 
-func (r *Retriever) requestBlocks(digest []crypto.Digest, nodeid []NodeID) {
+func (r *Retriever) requestBlocks(digest []crypto.Digest, nodeid NodeID) {
 	req := &reqRetrieve{
 		typ:    ReqType,
 		digest: digest,
-		nodeid: nodeid,
+		nodeID: nodeid,
 	}
 	r.reqChannel <- req
 }

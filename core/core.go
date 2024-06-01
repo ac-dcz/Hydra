@@ -26,13 +26,12 @@ type Core struct {
 	retriever           *Retriever
 	eletor              *Elector
 	commitor            *Commitor
+	localDAG            *LocalDAG
 	loopBackChannel     chan *Block
 	grbcCallBackChannel chan *callBackReq
 	commitChannel       chan<- *Block
-	grbcInstances       map[int]map[NodeID]*GRBC
-	blockDigests        map[crypto.Digest]NodeID         // store hash of block that has received
-	localDAG            map[int]map[NodeID]crypto.Digest // local DAG
 	proposedFlag        map[int]struct{}
+	grbcInstances       map[int]map[NodeID]*GRBC
 }
 
 func NewCore(
@@ -61,13 +60,13 @@ func NewCore(
 		grbcCallBackChannel: grbcCallBackChannel,
 		commitChannel:       commitChannel,
 		grbcInstances:       make(map[int]map[NodeID]*GRBC),
-		blockDigests:        make(map[crypto.Digest]NodeID),
-		localDAG:            make(map[int]map[NodeID]crypto.Digest),
+		localDAG:            NewLocalDAG(),
 		proposedFlag:        make(map[int]struct{}),
 	}
 
 	corer.retriever = NewRetriever(nodeID, store, transmitor, sigService, parameters, loopBackChannel)
 	corer.eletor = NewElector(sigService, committee)
+	corer.commitor = NewCommitor(corer.eletor, corer.localDAG, commitChannel)
 
 	return corer
 }
@@ -96,7 +95,7 @@ func (corer *Core) getGRBCInstance(node NodeID, round int) *GRBC {
 
 func (corer *Core) checkReference(block *Block) bool {
 	for d := range block.Reference {
-		if _, ok := corer.blockDigests[d]; !ok {
+		if ok, _ := corer.localDAG.IsReceived(d); !ok {
 			return false
 		}
 	}
@@ -104,14 +103,12 @@ func (corer *Core) checkReference(block *Block) bool {
 }
 
 func (corer *Core) retrieveBlock(block *Block) {
-	missDigests, missNodes := make([]crypto.Digest, 0), make([]NodeID, 0)
-	for d, id := range block.Reference {
-		if _, ok := corer.blockDigests[d]; !ok {
-			missDigests = append(missDigests, d)
-			missNodes = append(missNodes, id)
-		}
+	var temp []crypto.Digest
+	for d := range block.Reference {
+		temp = append(temp, d)
 	}
-	corer.retriever.requestBlocks(missDigests, missNodes)
+	_, missDeigest := corer.localDAG.IsReceived(temp...)
+	corer.retriever.requestBlocks(missDeigest, block.Author)
 }
 
 /*********************************Protocol***********************************************/
@@ -126,46 +123,28 @@ func (corer *Core) generatorBlock(round int) *Block {
 					Author:    corer.nodeID,
 					Round:     round,
 					Batch:     corer.txpool.GetBatch(),
-					Reference: nil,
+					Reference: make(map[crypto.Digest]NodeID),
 				}
 			} else {
-				if pbcSlot, ok := corer.localDAG[round-1]; ok {
-					// >=2f+1?
-					if len(pbcSlot) >= corer.committee.HightThreshold() {
-						reference := make(map[crypto.Digest]NodeID)
-						for id, d := range pbcSlot {
-							reference[d] = id
-						}
-						block = &Block{
-							Author:    corer.nodeID,
-							Round:     round,
-							Batch:     corer.txpool.GetBatch(),
-							Reference: reference,
-						}
-					}
-				}
-			}
-		} else { // PBC round
-			if grbcInstances, ok := corer.grbcInstances[round-1]; ok {
-				cnt := 0
-				for _, instance := range grbcInstances {
-					if instance.Grade() == GradeTwo {
-						cnt++
-					}
-				}
-				// grade 2 >= 2f+1?
-				if cnt >= corer.committee.HightThreshold() {
-					grbcSlot := corer.localDAG[round-1]
-					reference := make(map[crypto.Digest]NodeID)
-					for id, d := range grbcSlot {
-						reference[d] = id
-					}
+				reference := corer.localDAG.GetReceivedBlock(round - 1)
+				if len(reference) >= corer.committee.HightThreshold() {
 					block = &Block{
 						Author:    corer.nodeID,
 						Round:     round,
 						Batch:     corer.txpool.GetBatch(),
 						Reference: reference,
 					}
+				}
+			}
+		} else { // PBC round
+			_, grade2nums := corer.localDAG.GetReceivedBlockNums(round)
+			if grade2nums >= corer.committee.HightThreshold() {
+				reference := corer.localDAG.GetReceivedBlock(round - 1)
+				block = &Block{
+					Author:    corer.nodeID,
+					Round:     round,
+					Batch:     corer.txpool.GetBatch(),
+					Reference: reference,
 				}
 			}
 		}
@@ -268,16 +247,16 @@ func (corer *Core) handlePBCPropose(propose *PBCProposeMsg) error {
 func (corer *Core) handleOutPut(round int, node NodeID, digest crypto.Digest) error {
 	logger.Debug.Printf("procesing output round %d node %d \n", round, node)
 
-	corer.blockDigests[digest] = node
-	slot, ok := corer.localDAG[round]
-	if !ok {
-		slot = make(map[NodeID]crypto.Digest)
-		corer.localDAG[round] = slot
-	}
-	slot[node] = digest
+	corer.localDAG.ReceiveBlock(round, node, digest)
 
-	if len(slot) >= corer.committee.HightThreshold() {
-		return corer.advanceRound(round + 1)
+	if n, grade2nums := corer.localDAG.GetReceivedBlockNums(round); n >= corer.committee.HightThreshold() {
+		if round%WaveRound == 0 {
+			if grade2nums >= corer.committee.HightThreshold() {
+				return corer.advanceRound(round + 1)
+			}
+		} else {
+			return corer.advanceRound(round + 1)
+		}
 	}
 
 	return nil
@@ -331,8 +310,7 @@ func (corer *Core) handleElect(elect *ElectMsg) error {
 
 	if leader, err := corer.eletor.Add(elect); err != nil {
 		return err
-	} else {
-		//notify to commit
+	} else if leader != NONE {
 		corer.commitor.Push(elect.Round%WaveRound, leader)
 	}
 
@@ -387,8 +365,12 @@ func (corer *Core) handleLoopBack(block *Block) error {
 }
 
 func (corer *Core) handleCallBack(req *callBackReq) error {
+	//Update grade
 
-	return corer.handleOutPut(req.round, req.nodeID, req.digest)
+	if req.tag == NotifyOutPut {
+		return corer.handleOutPut(req.round, req.nodeID, req.digest)
+	}
+	return nil
 }
 
 func (corer *Core) Run() {
