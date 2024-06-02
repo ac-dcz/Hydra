@@ -2,6 +2,7 @@ package core
 
 import (
 	"lightDAG/crypto"
+	"lightDAG/logger"
 	"lightDAG/store"
 	"sync"
 )
@@ -171,10 +172,33 @@ func NewCommitor(electot *Elector, localDAG *LocalDAG, store *store.Store, commi
 }
 
 func (c *Commitor) run() {
+
+	go func() {
+		for digest := range c.inner {
+			if block, err := getBlock(c.store, digest); err != nil {
+				logger.Warn.Println(err)
+			} else {
+				if block.Batch.Txs != nil {
+					//BenchMark Log
+					logger.Info.Printf("commit Block round %d node %d batch_id %d \n", block.Round, block.Author, block.Batch.ID)
+				}
+				c.commitChannel <- block
+			}
+		}
+	}()
+
 	for num := range c.notify {
 		if num > c.curWave {
 			if leader := c.elector.GetLeader(num); leader != NONE {
-				leaderQ := [][2]int{{int(leader), 2 * num}}
+
+				var leaderQ [][2]int
+				for i := 1; i <= c.N; i++ {
+					var node int = (int(leader) + i) % c.N
+					if c.localDAG.GetGrade(2*num, node) == GradeTwo {
+						leaderQ = append(leaderQ, [2]int{node, 2 * num})
+					}
+				}
+
 				for i := num - 1; i > c.curWave; i-- {
 					if node := c.elector.GetLeader(i); node != NONE {
 						leaderQ = append(leaderQ, [2]int{int(node), i * 2})
@@ -189,7 +213,9 @@ func (c *Commitor) run() {
 }
 
 func (c *Commitor) commitLeaderQueue(q [][2]int) {
-	for i := len(q) - 1; i > 0; i-- {
+
+	for i := len(q) - 1; i >= 0; i-- {
+
 		leader, round := q[i][0], q[i][1]
 		var (
 			queue1 []crypto.Digest
@@ -205,7 +231,7 @@ func (c *Commitor) commitLeaderQueue(q [][2]int) {
 				n := len(queue1)
 				temp := make([]*crypto.Digest, c.N)
 
-				for i := 0; i < n; i++ {
+				for n > 0 {
 					block, node := queue1[0], queue2[0]
 					if _, ok := c.commitBlocks[block]; !ok {
 
@@ -224,20 +250,27 @@ func (c *Commitor) commitLeaderQueue(q [][2]int) {
 
 					}
 					queue1, queue2 = queue1[1:], queue2[1:]
+					n--
 				} //for
 
 				//next round is pbc round
 				if round%WaveRound == 0 {
-					for i := 0; i < c.N; i++ {
-						if temp[i] != nil {
-							queue1 = append(queue1, *temp[i])
-							queue2 = append(queue2, NodeID(i))
+					for j := 0; j < c.N; j++ {
+						if temp[j] != nil {
+							queue1 = append(queue1, *temp[j])
+							queue2 = append(queue2, NodeID(j))
 						}
 					}
-				} else { //next round id pbc round
-					// seq:=c.elector.GetLeader(())
+				} else { //next round id grbc round
+					L := int(c.elector.GetLeader((round / 2)))
+					for j := 0; j < c.N; j++ {
+						ind := (L + c.N - j) % c.N
+						if temp[ind] != nil {
+							queue1 = append(queue1, *temp[ind])
+							queue2 = append(queue2, NodeID(ind))
+						}
+					}
 				}
-
 				round--
 			} //for
 		}
@@ -247,9 +280,6 @@ func (c *Commitor) commitLeaderQueue(q [][2]int) {
 		}
 
 	} //for
-
-	//i=0
-
 }
 
 func (c *Commitor) NotifyToCommit(waveNum int) {

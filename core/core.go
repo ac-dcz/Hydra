@@ -71,19 +71,19 @@ func NewCore(
 	return corer
 }
 
-func storeBlock(corer *Core, block *Block) error {
+func storeBlock(store *store.Store, block *Block) error {
 	key := block.Hash()
 	if val, err := block.Encode(); err != nil {
 		return err
 	} else {
-		corer.store.Write(key[:], val)
+		store.Write(key[:], val)
 		return nil
 	}
 }
 
-func getBlock(corer *Core, digest crypto.Digest) (*Block, error) {
+func getBlock(store *store.Store, digest crypto.Digest) (*Block, error) {
 	block := &Block{}
-	data, err := corer.store.Read(digest[:])
+	data, err := store.Read(digest[:])
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +166,7 @@ func (corer *Core) generatorBlock(round int) *Block {
 		corer.proposedFlag[round] = struct{}{}
 		if block.Batch.Txs != nil {
 			//BenchMark Log
-			logger.Info.Printf("create Block round %d node %d \n", block.Round, block.Author)
+			logger.Info.Printf("create Block round %d node %d batch_id %d \n", block.Round, block.Author, block.Batch.ID)
 		}
 	}
 
@@ -182,7 +182,7 @@ func (corer *Core) handleGRBCPropose(propose *GRBCProposeMsg) error {
 	}
 
 	//Step 2: store Block
-	if err := storeBlock(corer, propose.B); err != nil {
+	if err := storeBlock(corer.store, propose.B); err != nil {
 		return err
 	}
 
@@ -238,7 +238,7 @@ func (corer *Core) handlePBCPropose(propose *PBCProposeMsg) error {
 	}
 
 	//Step 2: store Block
-	if err := storeBlock(corer, propose.B); err != nil {
+	if err := storeBlock(corer.store, propose.B); err != nil {
 		return err
 	}
 
@@ -359,7 +359,7 @@ func (corer *Core) handleReplyBlock(reply *ReplyBlockMsg) error {
 		corer.getGRBCInstance(reply.B.Author, reply.B.Round).SetGrade(GradeOne)
 	}
 
-	storeBlock(corer, reply.B)
+	storeBlock(corer.store, reply.B)
 	corer.handleOutPut(reply.B.Round, reply.B.Author, reply.B.Hash(), reply.B.Reference)
 
 	go corer.retriever.processReply(reply)
@@ -383,7 +383,7 @@ func (corer *Core) handleLoopBack(block *Block) error {
 
 func (corer *Core) handleCallBack(req *callBackReq) error {
 	//Update grade
-	block, err := getBlock(corer, req.digest)
+	block, err := getBlock(corer.store, req.digest)
 	if err != nil {
 		panic(err)
 	}
