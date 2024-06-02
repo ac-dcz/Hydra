@@ -6,15 +6,14 @@ class SettingsError(Exception):
 
 
 class Settings:
-    def __init__(self, key_name, key_path, consensus_port, mempool_port, front_port, repo_name,
-                 repo_url, branch, instance_type, aws_regions):
+    def __init__(self, key_name, key_path,accesskey_path, consensus_port,instance_type, aws_regions):
         regions = aws_regions if isinstance(
             aws_regions, list) else [aws_regions]
         inputs_str = [
-            key_name, key_path, repo_name, repo_url, branch, instance_type
+            key_name, key_path, instance_type
         ]
         inputs_str += regions
-        inputs_int = [consensus_port, mempool_port, front_port]
+        inputs_int = [consensus_port]
         ok = all(isinstance(x, str) for x in inputs_str)
         ok &= all(isinstance(x, int) for x in inputs_int)
         ok &= len(regions) > 0
@@ -23,14 +22,9 @@ class Settings:
 
         self.key_name = key_name
         self.key_path = key_path
-
+        self.accesskey_path = accesskey_path
+        
         self.consensus_port = consensus_port
-        self.mempool_port = mempool_port
-        self.front_port = front_port
-
-        self.repo_name = repo_name
-        self.repo_url = repo_url
-        self.branch = branch
 
         self.instance_type = instance_type
         self.aws_regions = regions
@@ -44,12 +38,8 @@ class Settings:
             return cls(
                 data['key']['name'],
                 data['key']['path'],
+                data['key']['accesskey'],
                 data['ports']['consensus'],
-                data['ports']['mempool'],
-                data['ports']['front'],
-                data['repo']['name'],
-                data['repo']['url'],
-                data['repo']['branch'],
                 data['instances']['type'],
                 data['instances']['regions'],
             )

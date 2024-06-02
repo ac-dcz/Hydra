@@ -3,7 +3,7 @@ from fabric import task
 from benchmark.local import LocalBench
 from benchmark.logs import ParseError, LogParser
 from benchmark.utils import BenchError,Print
-
+from alibaba.instance import InstanceManager
 
 @task
 def local(ctx):
