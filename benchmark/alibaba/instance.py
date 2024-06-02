@@ -1,4 +1,7 @@
 from json import load
+
+from alibabacloud_vpc20160428.client import Client as Vpc20160428Client
+from alibabacloud_vpc20160428 import models as vpc_20160428_models
 from alibabacloud_ecs20140526.client import Client as Ecs20140526Client
 from alibabacloud_tea_openapi import models as open_api_models
 from alibabacloud_ecs20140526 import models as ecs_20140526_models
@@ -14,8 +17,9 @@ from alibaba.settings import Settings, SettingsError
 
 
 class InstanceManager:
-    INSTANCE_NAME = 'lightDAG-node'
+    INSTANCE_NAME = 'lightDAG'
     SECURITY_GROUP_NAME = 'lightDAG'
+    VPC_NAME = 'lightDAG'
 
     def __init__(self, settings):
         assert isinstance(settings, Settings)
@@ -24,7 +28,8 @@ class InstanceManager:
             data = load(f)
         self.access_key_id = data["AccessKey ID"]
         self.access_key_secret = data["AccessKey Secret"]
-        self.clients = OrderedDict()
+        self.ecs_clients = OrderedDict()
+        self.vpc_clients = OrderedDict()
         self.securities = OrderedDict()
         #为每个地区创建一个Client
         for region in settings.aws_regions:
@@ -32,7 +37,8 @@ class InstanceManager:
             config.access_key_id = self.access_key_id
             config.access_key_secret = self.access_key_secret
             config.region_id = region
-            self.clients[region] = Ecs20140526Client(config)
+            self.ecs_clients[region] = Ecs20140526Client(config)
+            self.vpc_clients[region] = Vpc20160428Client(config)
         self.aliyun_runtime = util_models.RuntimeOptions()
 
     @classmethod
@@ -45,25 +51,33 @@ class InstanceManager:
     def _get(self, state):
         # Possible states are: 'pending', 'running', 'shutting-down',
         # 'terminated', 'stopping', and 'stopped'.
-        ids, ips = defaultdict(list), defaultdict(list)
-        for region, client in self.clients.items():
-            r = client.describe_instances(
-                Filters=[
-                    {
-                        'Name': 'tag:Name',
-                        'Values': [self.INSTANCE_NAME]
-                    },
-                    {
-                        'Name': 'instance-state-name',
-                        'Values': state
-                    }
-                ]
-            )
-            instances = [y for x in r['Reservations'] for y in x['Instances']]
-            for x in instances:
-                ids[region] += [x['InstanceId']]
-                if 'PublicIpAddress' in x:
-                    ips[region] += [x['PublicIpAddress']]
+
+        try:
+
+            ids, ips = defaultdict(list), defaultdict(list)
+            for region, client in self.ecs_clients.items():
+                describe_instances_request = ecs_20140526_models.DescribeInstancesRequest(
+                    region_id=region,
+                    instance_type=self.settings.instance_type,
+                    instance_name = self.INSTANCE_NAME,
+                    internet_charge_type = 'PayByTraffic',
+                    instance_charge_type = 'PostPaid',
+                )
+
+                resp = client.describe_instances_with_options(describe_instances_request, self.aliyun_runtime).to_map()
+                for instance in resp['body']['Instances']['Instance']:
+                    if instance['Status'] in state:
+                        ids[region] += [instance['InstanceId']]
+                        ips[region] += [instance['PublicIpAddress']['IpAddress'][0]]
+
+        except Exception as error:
+            # 此处仅做打印展示，请谨慎对待异常处理，在工程项目中切勿直接忽略异常。
+            # 错误 message
+            print(error.message)
+            # 诊断地址
+            print(error.data.get("Recommend"))
+            UtilClient.assert_as_string(error.message)
+
         return ids, ips
 
     def _wait(self, state):
@@ -75,20 +89,32 @@ class InstanceManager:
             if sum(len(x) for x in ids.values()) == 0:
                 break
 
-    def _create_security_group(self, client,region):
+    def _create_security_group(self, client , region):
 
         try:
+            temp = {}
+            # step 0: 查询vpc
+            describe_vpcs_request = vpc_20160428_models.DescribeVpcsRequest(
+                region_id='us-east-1',
+                vpc_name='lightDAG'
+            )
+
+            resp = self.vpc_clients[region].describe_vpcs_with_options(describe_vpcs_request, self.aliyun_runtime).to_map()
+            temp["VSwitchId"] = resp['body']['Vpcs']['Vpc'][0]['VSwitchIds']['VSwitchId'][0]
+            temp['VpcId'] = resp['body']['Vpcs']['Vpc'][0]['VpcId']
+
             # step 1: 创建安全组
             create_security_group_request = ecs_20140526_models.CreateSecurityGroupRequest(
                 region_id=region,
                 description=self.INSTANCE_NAME,
                 security_group_name=self.SECURITY_GROUP_NAME,
+                vpc_id = temp['VpcId']
             )
 
             resp = client.create_security_group_with_options(create_security_group_request, self.aliyun_runtime).to_map()
             securityID = resp['body']['SecurityGroupId']
-            self.securities[region] = securityID
-
+            temp['securityID'] = securityID
+            self.securities[region] = temp
             # step 2: 设置开放端口
             authorize_security_group_request = ecs_20140526_models.AuthorizeSecurityGroupRequest(
                 region_id=region,
@@ -124,12 +150,12 @@ class InstanceManager:
         # The AMI changes with regions.
 
         describe_images_request = ecs_20140526_models.DescribeImagesRequest(
-            region_id='us-east-1',
-            status='Available',
-            image_owner_alias='system',
-            instance_type='ecs.g6e.xlarge',
-            ostype='linux',
-            architecture='x86_64',
+            region_id = region,
+            status = 'Available',
+            image_owner_alias = 'system',
+            instance_type = self.settings.instance_type,
+            ostype = 'linux',
+            architecture = 'x86_64',
             filter=[
                 ecs_20140526_models.DescribeImagesRequestFilter(
                     key='description',
@@ -157,7 +183,7 @@ class InstanceManager:
         assert isinstance(instances, int) and instances > 0
 
         # Create the security group in every region.
-        for region,client in self.clients.items():
+        for region,client in self.ecs_clients.items():
             try:
                 self._create_security_group(client,region)
             except Exception as e:
@@ -165,61 +191,66 @@ class InstanceManager:
 
         try:
             # Create all instances.
-            size = instances * len(self.clients)
+            size = instances * len(self.ecs_clients)
             progress = progress_bar(
-                self.clients.items(), prefix=f'Creating {size} instances'
+                self.ecs_clients.items(), prefix=f'Creating {size} instances'
             )
             for region,client in progress:
-                client.run_instances(
-                    ImageId=self._get_ami(client,region),
-                    InstanceType=self.settings.instance_type,
-                    KeyName=self.settings.key_name,
-                    MaxCount=instances,
-                    MinCount=instances,
-                    SecurityGroups=[self.SECURITY_GROUP_NAME],
-                    TagSpecifications=[{
-                        'ResourceType': 'instance',
-                        'Tags': [{
-                            'Key': 'Name',
-                            'Value': self.INSTANCE_NAME
-                        }]
-                    }],
-                    EbsOptimized=True,
-                    BlockDeviceMappings=[{
-                        'DeviceName': '/dev/sda1',
-                        'Ebs': {
-                            'VolumeType': 'gp2',
-                            'VolumeSize': 200,
-                            'DeleteOnTermination': True
-                        }
-                    }],
+
+                run_instances_request = ecs_20140526_models.RunInstancesRequest(
+                    region_id = region,
+                    image_id = self._get_ami(client,region),
+                    instance_type= self.settings.instance_type,
+                    instance_name= self.INSTANCE_NAME,
+                    internet_max_bandwidth_in = 100,
+                    internet_max_bandwidth_out = 100,
+                    unique_suffix = True,
+                    internet_charge_type = 'PayByTraffic',
+                    system_disk = ecs_20140526_models.RunInstancesRequestSystemDisk(category='cloud_essd'),
+                    key_pair_name = self.settings.key_name,
+                    amount = instances,
+                    min_amount = instances,
+                    instance_charge_type = 'PostPaid',
+                    security_group_id = self.securities[region]['securityID'],
+                    v_switch_id = self.securities[region]['VSwitchId']
                 )
+
+                client.run_instances_with_options(run_instances_request, self.aliyun_runtime)
 
             # Wait for the instances to boot.
             Print.info('Waiting for all instances to boot...')
             self._wait(['pending'])
             Print.heading(f'Successfully created {size} new instances')
-        except ClientError as e:
-            raise BenchError('Failed to create AWS instances', AWSError(e))
+        except Exception as error:
+            # 此处仅做打印展示，请谨慎对待异常处理，在工程项目中切勿直接忽略异常。
+            # 错误 message
+            print(error.message)
+            # 诊断地址
+            print(error.data.get("Recommend"))
+            UtilClient.assert_as_string(error.message)
 
     def terminate_instances(self):
         
         try:
-            # ids, _ = self._get(['pending', 'running', 'stopping', 'stopped'])
-            # size = sum(len(x) for x in ids.values())
-            # if size == 0:
-            #     Print.heading(f'All instances are shut down')
-            #     return
+            ids, _ = self._get(['Pending', 'Running', 'Stopping', 'Stopped'])
+            size = sum(len(x) for x in ids.values())
+            if size != 0:
+                # Terminate instances.
+                for region, client in self.ecs_clients.items():
+                    if ids[region]:
+                        delete_instances_request = ecs_20140526_models.DeleteInstancesRequest(
+                            region_id=region,
+                            instance_id= ids[region],
+                            force=True
+                        )
+                        client.delete_instances_with_options(delete_instances_request, self.aliyun_runtime)
 
-            # # Terminate instances.
-            # for region, client in self.clients.items():
-            #     if ids[region]:
-            #         client.terminate_instances(InstanceIds=ids[region])
+                # Wait for all instances to properly shut down.
+                Print.info('Waiting for all instances to shut down...')
+                self._wait(['Pending', 'Running', 'Stopping', 'Stopped'])
 
-            # # Wait for all instances to properly shut down.
-            # Print.info('Waiting for all instances to shut down...')
-            # self._wait(['shutting-down'])
-            for region,client in self.clients.items():
+            # step 2: 删除安全组
+            for region,client in self.ecs_clients.items():
                 describe_security_groups_request = ecs_20140526_models.DescribeSecurityGroupsRequest(
                     region_id=region,
                     security_group_name=self.SECURITY_GROUP_NAME,
@@ -231,7 +262,7 @@ class InstanceManager:
                         security_group_id=group["SecurityGroupId"],
                     )
                     client.delete_security_group_with_options(delete_security_group_request, self.aliyun_runtime)
-
+            Print.heading(f'All instances are shut down')
             # Print.heading(f'Testbed of {size} instances destroyed')
         except Exception as e:
             raise BenchError('Failed to terminate instances', e)
@@ -239,34 +270,50 @@ class InstanceManager:
     def start_instances(self, max):
         size = 0
         try:
-            ids, _ = self._get(['stopping', 'stopped'])
-            for region, client in self.clients.items():
-                if ids[region]:
+            ids, _ = self._get(['Stopping', 'Stopped'])
+            for region, client in self.ecs_clients.items():
+                for id in ids[region]:
                     target = ids[region]
                     target = target if len(target) < max else target[:max]
                     size += len(target)
-                    client.start_instances(InstanceIds=target)
+                    start_instances_request = ecs_20140526_models.StartInstancesRequest(
+                        region_id=region,
+                        instance_id=target
+                    )
+                    client.start_instances_with_options(start_instances_request, self.aliyun_runtime)
             Print.heading(f'Starting {size} instances')
-        except ClientError as e:
-            raise BenchError('Failed to start instances', AWSError(e))
+
+        except Exception as error:
+            # 此处仅做打印展示，请谨慎对待异常处理，在工程项目中切勿直接忽略异常。
+            # 错误 message
+            print(error.message)
+            # 诊断地址
+            print(error.data.get("Recommend"))
+            UtilClient.assert_as_string(error.message)
 
     def stop_instances(self):
         try:
-            ids, _ = self._get(['pending', 'running'])
-            for region, client in self.clients.items():
+            ids, _ = self._get(['Pending', 'Running'])
+            for region, client in self.ecs_clients.items():
                 if ids[region]:
-                    client.stop_instances(InstanceIds=ids[region])
+                    stop_instances_request = ecs_20140526_models.StopInstancesRequest(
+                        region_id=region,
+                        instance_id=ids[region]
+                    )
+                    client.stop_instances_with_options(stop_instances_request, self.aliyun_runtime)
             size = sum(len(x) for x in ids.values())
             Print.heading(f'Stopping {size} instances')
-        except ClientError as e:
-            raise BenchError(AWSError(e))
+        except Exception as error:
+            # 错误 message
+            print(error.message)
+            # 诊断地址
+            print(error.data.get("Recommend"))
+            UtilClient.assert_as_string(error.message)
 
     def hosts(self, flat=False):
-        try:
-            _, ips = self._get(['pending', 'running'])
-            return [x for y in ips.values() for x in y] if flat else ips
-        except ClientError as e:
-            raise BenchError('Failed to gather instances IPs', AWSError(e))
+
+        _, ips = self._get(['Pending', 'Running'])
+        return [x for y in ips.values() for x in y] if flat else ips
 
     def print_info(self):
         hosts = self.hosts()
