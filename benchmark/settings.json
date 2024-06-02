@@ -1,0 +1,20 @@
+{
+    "key": {
+        "name": "Daniel",
+        "path": "/Users/xiangzhuolun/.ssh/aws"
+    },
+    "ports": {
+        "consensus": 8000,
+        "mempool": 7000,
+        "front": 6000
+    },
+    "repo": {
+        "name": "hotstuff",
+        "url": "https://github.com/danielxiangzl/hotstuff.git",
+        "branch": "main"
+    },
+    "instances": {
+        "type": "m5d.8xlarge",
+        "regions": ["us-east-1", "eu-north-1", "ap-northeast-1", "ap-southeast-2", "us-west-1"]
+    }
+}
