@@ -20,7 +20,10 @@ func NewNode(
 ) (*Node, error) {
 	commitChannel := make(chan *core.Block, 1_000)
 	//step 1: init log config
-	logger.SetOutput(logger.Level(logLevel), logger.NewFileWriter(fmt.Sprintf("%s/node-%d.log", logPath, nodeID)))
+	logger.SetOutput(logger.InfoLevel, logger.NewFileWriter(fmt.Sprintf("%s/node-%d-info.log", logPath, nodeID)))
+	logger.SetOutput(logger.DebugLevel, logger.NewFileWriter(fmt.Sprintf("%s/node-%d-debug.log", logPath, nodeID)))
+	logger.SetOutput(logger.WarnLevel, logger.NewFileWriter(fmt.Sprintf("%s/node-%d-warn.log", logPath, nodeID)))
+	logger.SetOutput(logger.ErrorLevel, logger.NewFileWriter(fmt.Sprintf("%s/node-%d-error.log", logPath, nodeID)))
 	logger.SetLevel(logger.Level(logLevel))
 
 	//step 2: ReadKeys
