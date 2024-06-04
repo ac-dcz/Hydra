@@ -96,7 +96,7 @@ class LocalBench:
                     db,
                     PathMaker.parameters_file(),
                     self.ts,
-                    debug=debug
+                    self.bench_parameters.log_level
                 )
                 self._background_run(cmd, log_file)
 
