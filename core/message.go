@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-type Message interface {
+type ConsensusMessage interface {
 	MsgType() int
 	Hash() crypto.Digest
 }
@@ -45,10 +45,10 @@ func (b *Block) Hash() crypto.Digest {
 	for _, tx := range b.Batch.Txs {
 		hasher.Add(tx)
 	}
-	for d, id := range b.Reference {
-		hasher.Add(d[:])
-		hasher.Add(strconv.AppendInt(nil, int64(id), 2))
-	}
+	// for d, id := range b.Reference {
+	// 	hasher.Add(d[:])
+	// 	hasher.Add(strconv.AppendInt(nil, int64(id), 2))
+	// }
 
 	return hasher.Sum256(nil)
 }
@@ -280,7 +280,7 @@ func (msg *ElectMsg) MsgType() int {
 // RequestBlock
 type RequestBlockMsg struct {
 	Author    NodeID
-	BlockHash crypto.Digest
+	MissBlock []crypto.Digest
 	Signature crypto.Signature
 	ReqID     int
 	Ts        int64
@@ -288,14 +288,14 @@ type RequestBlockMsg struct {
 
 func NewRequestBlock(
 	Author NodeID,
-	BlockHash crypto.Digest,
+	MissBlock []crypto.Digest,
 	ReqID int,
 	Ts int64,
 	sigService *crypto.SigService,
 ) (*RequestBlockMsg, error) {
 	msg := &RequestBlockMsg{
 		Author:    Author,
-		BlockHash: BlockHash,
+		MissBlock: MissBlock,
 		ReqID:     ReqID,
 		Ts:        Ts,
 	}
@@ -315,26 +315,28 @@ func (msg *RequestBlockMsg) Hash() crypto.Digest {
 	hasher := crypto.NewHasher()
 	hasher.Add(strconv.AppendInt(nil, int64(msg.Author), 2))
 	hasher.Add(strconv.AppendInt(nil, int64(msg.ReqID), 2))
-	hasher.Add(msg.BlockHash[:])
+	for _, d := range msg.MissBlock {
+		hasher.Add(d[:])
+	}
 	return hasher.Sum256(nil)
 }
 
 func (msg *RequestBlockMsg) MsgType() int {
-	return ReplyBlockType
+	return RequestBlockType
 }
 
 // ReplyBlockMsg
 type ReplyBlockMsg struct {
 	Author    NodeID
-	B         *Block
+	Blocks    []*Block
 	ReqID     int
 	Signature crypto.Signature
 }
 
-func NewReplyBlockMsg(Author NodeID, B *Block, ReqID int, sigService *crypto.SigService) (*ReplyBlockMsg, error) {
+func NewReplyBlockMsg(Author NodeID, B []*Block, ReqID int, sigService *crypto.SigService) (*ReplyBlockMsg, error) {
 	msg := &ReplyBlockMsg{
 		Author: Author,
-		B:      B,
+		Blocks: B,
 		ReqID:  ReqID,
 	}
 	sig, err := sigService.RequestSignature(msg.Hash())
@@ -353,13 +355,23 @@ func (msg *ReplyBlockMsg) Hash() crypto.Digest {
 	hasher := crypto.NewHasher()
 	hasher.Add(strconv.AppendInt(nil, int64(msg.Author), 2))
 	hasher.Add(strconv.AppendInt(nil, int64(msg.ReqID), 2))
-	digest := msg.B.Hash()
-	hasher.Add(digest[:])
 	return hasher.Sum256(nil)
 }
 
 func (msg *ReplyBlockMsg) MsgType() int {
 	return ReplyBlockType
+}
+
+type LoopBackMsg struct {
+	BlockHash crypto.Digest
+}
+
+func (msg *LoopBackMsg) Hash() crypto.Digest {
+	return crypto.NewHasher().Sum256(msg.BlockHash[:])
+}
+
+func (msg *LoopBackMsg) MsgType() int {
+	return LoopBackType
 }
 
 const (
@@ -370,6 +382,7 @@ const (
 	PBCProposeType
 	RequestBlockType
 	ReplyBlockType
+	LoopBackType
 	TotalNums
 )
 
@@ -381,4 +394,5 @@ var DefaultMsgTypes = map[int]reflect.Type{
 	PBCProposeType:   reflect.TypeOf(PBCProposeMsg{}),
 	RequestBlockType: reflect.TypeOf(RequestBlockMsg{}),
 	ReplyBlockType:   reflect.TypeOf(ReplyBlockMsg{}),
+	LoopBackType:     reflect.TypeOf(LoopBackMsg{}),
 }

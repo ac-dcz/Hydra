@@ -2,24 +2,21 @@ package network
 
 import (
 	"encoding/gob"
+	"io"
 	"lightDAG/logger"
 	"net"
 )
 
 type NetMessage struct {
 	Msg     *Messgae
-	Address []string
+	Address string
 }
 
 type Messgae struct {
+	From int
 	Typ  int
 	Data []byte
 }
-
-// func EncodeMessage(msg *Messgae) []byte {
-// 	buf:=bytes.NEW
-// 	gob.NewEncoder()
-// }
 
 type Sender struct {
 	msgCh chan *NetMessage
@@ -36,17 +33,15 @@ func NewSender() *Sender {
 
 func (s *Sender) Run() {
 	for msg := range s.msgCh {
-		for _, addr := range msg.Address {
-			if conn, ok := s.conns[addr]; ok {
-				conn <- msg.Msg
+		if conn, ok := s.conns[msg.Address]; ok {
+			conn <- msg.Msg
+		} else {
+			conn, err := s.connect(msg.Address)
+			if err != nil {
+				continue
 			} else {
-				conn, err := s.connect(addr)
-				if err != nil {
-					continue
-				} else {
-					s.conns[addr] = conn
-					conn <- msg.Msg
-				}
+				s.conns[msg.Address] = conn
+				conn <- msg.Msg
 			}
 		}
 	}
@@ -87,6 +82,7 @@ type Receiver struct {
 }
 
 func NewReceiver(addr string) *Receiver {
+
 	receiver := &Receiver{
 		addr: addr,
 		msg:  make(chan *Messgae, 1000),
@@ -120,7 +116,9 @@ func (recv *Receiver) serveConn(conn net.Conn) {
 		msg := &Messgae{}
 		if err := decoder.Decode(msg); err != nil {
 			// logger.Debug.Printf("Received %v", msg)
-			logger.Warn.Printf("failed to receive : %v \n", err)
+			if err != io.EOF {
+				logger.Warn.Printf("failed to receive : %v \n", err)
+			}
 			return
 		}
 		recv.msg <- msg

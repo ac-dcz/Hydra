@@ -76,7 +76,10 @@ func (q *txQueue) get() Batch {
 	if len(q.batchChannel) > 0 {
 		return <-q.batchChannel
 	} else {
-		return Batch{}
+		return Batch{
+			ID:  -1,
+			Txs: nil,
+		}
 	}
 }
 

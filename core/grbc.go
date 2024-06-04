@@ -13,19 +13,23 @@ const (
 )
 
 type callBackReq struct {
-	digest crypto.Digest
-	nodeID NodeID
-	round  int
-	grade  int
-	tag    int
+	digest    crypto.Digest
+	nodeID    NodeID
+	reference map[crypto.Digest]NodeID
+	round     int
+	grade     int
+	tag       int
 }
 
 type GRBC struct {
-	nodeID     NodeID
-	proposer   NodeID
-	round      int
-	digest     atomic.Value
-	grade      atomic.Int32
+	nodeID   NodeID
+	proposer NodeID
+	round    int
+
+	digest    atomic.Value
+	grade     atomic.Int32
+	reference atomic.Value
+
 	sigService *crypto.SigService
 	transmitor *Transmitor
 	committee  Committee
@@ -66,6 +70,7 @@ func (g *GRBC) processPropose(block *Block) {
 	//Step 1: store digest
 	digest := block.Hash()
 	g.digest.Store(digest)
+	g.reference.Store(block.Reference)
 
 	//Step 2: send echo message
 	echo, err := NewEchoMsg(g.nodeID, block.Author, digest, block.Round, g.sigService)
@@ -119,11 +124,12 @@ func (g *GRBC) processEcho(echo *EchoMsg) {
 
 			//TODO: callback
 			g.callBackChannel <- &callBackReq{
-				nodeID: g.proposer,
-				digest: echo.BlockHash,
-				round:  g.round,
-				grade:  GradeOne,
-				tag:    NotifyOutPut,
+				nodeID:    g.proposer,
+				digest:    echo.BlockHash,
+				round:     g.round,
+				grade:     GradeOne,
+				tag:       NotifyOutPut,
+				reference: g.reference.Load().(map[crypto.Digest]NodeID),
 			}
 		})
 	}
@@ -155,11 +161,12 @@ func (g *GRBC) processReady(ready *ReadyMsg) {
 
 			//TODO: callback
 			g.callBackChannel <- &callBackReq{
-				nodeID: g.proposer,
-				digest: ready.BlockHash,
-				round:  g.round,
-				grade:  GradeOne,
-				tag:    NotifyOutPut,
+				nodeID:    g.proposer,
+				digest:    ready.BlockHash,
+				round:     g.round,
+				grade:     GradeOne,
+				tag:       NotifyOutPut,
+				reference: g.reference.Load().(map[crypto.Digest]NodeID),
 			}
 		})
 	} else if cnt == int32(g.committee.HightThreshold()) {
@@ -175,10 +182,6 @@ func (g *GRBC) processReady(ready *ReadyMsg) {
 		}
 	}
 
-}
-
-func (g *GRBC) SetGrade(grade int) {
-	g.grade.Store(int32(grade))
 }
 
 func (g *GRBC) Grade() int {

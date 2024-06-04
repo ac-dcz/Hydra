@@ -29,8 +29,8 @@ func TestTransimtor(t *testing.T) {
 		go receiver.Run()
 		transmitor := core.NewTransmitor(sender, receiver, core.DefaultMsgTypes, parameters, committee)
 		time.Sleep(time.Second * 2)
-		for i := 0; i < core.TotalNums; i++ {
-			transmitor.Send(node1, node2, GetMessage(i, sigService))
+		for i := 0; i < 20; i++ {
+			go transmitor.Send(node1, node2, GetMessage(i%core.TotalNums, sigService))
 		}
 		for {
 			select {
@@ -53,8 +53,9 @@ func TestTransimtor(t *testing.T) {
 		go receiver.Run()
 		transmitor := core.NewTransmitor(sender, receiver, core.DefaultMsgTypes, parameters, committee)
 		time.Sleep(time.Second * 2)
-		for i := 0; i < core.TotalNums; i++ {
-			transmitor.Send(node2, node1, GetMessage(i, sigService))
+
+		for i := 0; i < 20; i++ {
+			go transmitor.Send(node2, node1, GetMessage(i%core.TotalNums, sigService))
 		}
 		for {
 			select {

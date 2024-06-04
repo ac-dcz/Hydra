@@ -27,7 +27,7 @@ func savetoFile(filename string, data interface{}) {
 // GenerateKeyFiles generate keys file
 func GenerateKeyFiles(pairs int, path string) {
 	for i := 0; i < pairs; i++ {
-		filename := fmt.Sprintf("%s/node-key-%d.json", path, i)
+		filename := fmt.Sprintf("%s/.node-key-%d.json", path, i)
 		keys := make(map[string]interface{})
 		pri, pub := crypto.GenED25519Keys()
 		keys["public"] = string(crypto.EncodePublicKey(crypto.PublickKey{Pubkey: pub}))
@@ -40,7 +40,7 @@ func GenerateKeyFiles(pairs int, path string) {
 func GenerateTsKeyFiles(N, T int, path string) {
 	shares, pub := crypto.GenTSKeys(T, N)
 	for i := 0; i < N; i++ {
-		filename := fmt.Sprintf("%s/node-ts-key-%d.json", path, i)
+		filename := fmt.Sprintf("%s/.node-ts-key-%d.json", path, i)
 		keys := make(map[string]interface{})
 		share, _ := crypto.EncodeTSPartialKey(shares[i])
 		pub, _ := crypto.EncodeTSPublicKey(pub)
@@ -159,13 +159,13 @@ func GenerateSmapleCommittee() {
 			"addr":    item.Addr,
 		}
 	}
-	savetoFile("./committee.json", data)
+	savetoFile("./.committee.json", data)
 }
 
 // GenerateSampleParameters generate parameters sample file
 func GenerateSampleParameters() {
 	parameters := GenDefaultParameters()
-	savetoFile("./parameters.json", parameters)
+	savetoFile("./.parameters.json", parameters)
 }
 
 type Parameters struct {

@@ -1,4 +1,5 @@
 from json import load
+import time
 
 from alibabacloud_vpc20160428.client import Client as Vpc20160428Client
 from alibabacloud_vpc20160428 import models as vpc_20160428_models
@@ -68,7 +69,8 @@ class InstanceManager:
                 for instance in resp['body']['Instances']['Instance']:
                     if instance['Status'] in state:
                         ids[region] += [instance['InstanceId']]
-                        ips[region] += [instance['PublicIpAddress']['IpAddress'][0]]
+                        for ip in instance['PublicIpAddress']['IpAddress']:
+                            ips[region] += [ip]
 
         except Exception as error:
             # 此处仅做打印展示，请谨慎对待异常处理，在工程项目中切勿直接忽略异常。
@@ -95,7 +97,7 @@ class InstanceManager:
             temp = {}
             # step 0: 查询vpc
             describe_vpcs_request = vpc_20160428_models.DescribeVpcsRequest(
-                region_id='us-east-1',
+                region_id = region,
                 vpc_name='lightDAG'
             )
 
@@ -131,7 +133,7 @@ class InstanceManager:
                         priority='1',
                         ip_protocol='TCP',
                         source_cidr_ip='0.0.0.0/0',
-                        port_range= f'{self.settings.consensus_port}/{self.settings.consensus_port}',
+                        port_range= f'{self.settings.consensus_port}/{self.settings.consensus_port+4}',
                         description='Consensus port'
                     ),
                 ]
@@ -196,30 +198,35 @@ class InstanceManager:
                 self.ecs_clients.items(), prefix=f'Creating {size} instances'
             )
             for region,client in progress:
+                
+                system_disk = ecs_20140526_models.RunInstancesRequestSystemDisk(
+                    category='cloud_essd'
+                )
 
                 run_instances_request = ecs_20140526_models.RunInstancesRequest(
                     region_id = region,
                     image_id = self._get_ami(client,region),
-                    instance_type= self.settings.instance_type,
-                    instance_name= self.INSTANCE_NAME,
+                    instance_type = self.settings.instance_type,
+                    instance_name = self.INSTANCE_NAME,
+                    host_name = 'ubuntu',
                     internet_max_bandwidth_in = 100,
                     internet_max_bandwidth_out = 100,
-                    unique_suffix = True,
+                    unique_suffix = False,
                     internet_charge_type = 'PayByTraffic',
-                    system_disk = ecs_20140526_models.RunInstancesRequestSystemDisk(category='cloud_essd'),
                     key_pair_name = self.settings.key_name,
+                    system_disk=system_disk,
                     amount = instances,
                     min_amount = instances,
                     instance_charge_type = 'PostPaid',
                     security_group_id = self.securities[region]['securityID'],
-                    v_switch_id = self.securities[region]['VSwitchId']
+                    v_switch_id = self.securities[region]['VSwitchId'],
                 )
 
                 client.run_instances_with_options(run_instances_request, self.aliyun_runtime)
 
             # Wait for the instances to boot.
             Print.info('Waiting for all instances to boot...')
-            self._wait(['pending'])
+            self._wait(['Pending'])
             Print.heading(f'Successfully created {size} new instances')
         except Exception as error:
             # 此处仅做打印展示，请谨慎对待异常处理，在工程项目中切勿直接忽略异常。
@@ -248,24 +255,25 @@ class InstanceManager:
                 # Wait for all instances to properly shut down.
                 Print.info('Waiting for all instances to shut down...')
                 self._wait(['Pending', 'Running', 'Stopping', 'Stopped'])
-
-            # step 2: 删除安全组
-            for region,client in self.ecs_clients.items():
-                describe_security_groups_request = ecs_20140526_models.DescribeSecurityGroupsRequest(
-                    region_id=region,
-                    security_group_name=self.SECURITY_GROUP_NAME,
-                )
-                resp = client.describe_security_groups_with_options(describe_security_groups_request, self.aliyun_runtime).to_map()
-                for group in resp['body']["SecurityGroups"]["SecurityGroup"]:
-                    delete_security_group_request = ecs_20140526_models.DeleteSecurityGroupRequest(
-                        region_id=region,
-                        security_group_id=group["SecurityGroupId"],
-                    )
-                    client.delete_security_group_with_options(delete_security_group_request, self.aliyun_runtime)
             Print.heading(f'All instances are shut down')
             # Print.heading(f'Testbed of {size} instances destroyed')
         except Exception as e:
             raise BenchError('Failed to terminate instances', e)
+
+    def delete_security(self):
+        # step 2: 删除安全组
+        for region,client in self.ecs_clients.items():
+            describe_security_groups_request = ecs_20140526_models.DescribeSecurityGroupsRequest(
+                region_id=region,
+                security_group_name=self.SECURITY_GROUP_NAME,
+            )
+            resp = client.describe_security_groups_with_options(describe_security_groups_request, self.aliyun_runtime).to_map()
+            for group in resp['body']["SecurityGroups"]["SecurityGroup"]:
+                delete_security_group_request = ecs_20140526_models.DeleteSecurityGroupRequest(
+                    region_id=region,
+                    security_group_id=group["SecurityGroupId"],
+                )
+                client.delete_security_group_with_options(delete_security_group_request, self.aliyun_runtime)
 
     def start_instances(self, max):
         size = 0
@@ -323,7 +331,7 @@ class InstanceManager:
             text += f'\n Region: {region.upper()}\n'
             for i, ip in enumerate(ips):
                 new_line = '\n' if (i+1) % 6 == 0 else ''
-                text += f'{new_line} {i}\tssh -i {key} ubuntu@{ip}\n'
+                text += f'{new_line} {i}\tssh -i {key} root@{ip}\n'
         print(
             '\n'
             '----------------------------------------------------------------\n'

@@ -1,8 +1,8 @@
 {
     "key": {
         "name": "lightDAG",
-        "path": "C:/Users/11924/.ssh/",
-        "accesskey": "C:/Users/dczZ/.aliyun/access.json"
+        "path": "/root/.ssh/id_rsa",
+        "accesskey": "/root/.aliyun/access.json"
     },
     "ports": {
         "consensus": 8000
@@ -10,11 +10,10 @@
     "instances": {
         "type": "ecs.g6e.xlarge",
         "regions": [
-            "us-east-1",
             "eu-central-1",
-            "ap-northeast-1",
-            "ap-southeast-2",
-            "us-west-1"
+            "ap-northeast-2",
+            "ap-southeast-1",
+            "us-east-1"
         ]
     }
 }

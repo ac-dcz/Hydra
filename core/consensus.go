@@ -1,12 +1,14 @@
 package core
 
 import (
+	"fmt"
 	"lightDAG/crypto"
 	"lightDAG/logger"
 	"lightDAG/network"
 	"lightDAG/pool"
 	"lightDAG/store"
 	"net"
+	"strings"
 	"sync"
 	"time"
 )
@@ -39,7 +41,7 @@ func Consensus(
 	}
 
 	//Step 1: invoke network
-	addr := committee.Address(id)
+	addr := fmt.Sprintf(":%s", strings.Split(committee.Address(id), ":")[1])
 	sender, receiver := network.NewSender(), network.NewReceiver(addr)
 	go sender.Run()
 	go receiver.Run()

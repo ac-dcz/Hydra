@@ -28,172 +28,99 @@ class LogParser:
                 results = p.map(self._parse_nodes, nodes)
         except (ValueError, IndexError) as e:
             raise ParseError(f'Failed to parse node logs: {e}')
-        proposals, commits, sizes, self.received_samples, timeouts, self.configs,h_proposals,h_commits \
-            = zip(*results)
+        batchs,proposals, commits,configs = zip(*results)
         self.proposals = self._merge_results([x.items() for x in proposals])
         self.commits = self._merge_results([x.items() for x in commits])
-        self.h_proposals = self._merge_results([x.items() for x in h_proposals])
-        self.h_commits = self._merge_results([x.items() for x in h_commits])
-        self.sizes = {
-            k: v for x in sizes for k, v in x.items() if k in self.commits
-        }
-        self.timeouts = max(timeouts)
-
-        # Check whether clients missed their target rate.
-        if self.misses != 0:
-            Print.warn(
-                f'Clients missed their target rate {self.misses:,} time(s)'
-            )
-
-        # Check whether the nodes timed out.
-        # Note that nodes are expected to time out once at the beginning.
-        if self.timeouts > 1:
-            Print.warn(f'Nodes timed out {self.timeouts:,} time(s)')
+        self.batchs = self._merge_results([x.items() for x in batchs])
+        self.configs = configs[0]
 
     def _merge_results(self, input):
         # Keep the earliest timestamp.
         merged = {}
         for x in input:
             for k, v in x:
-                if not k in merged or merged[k] < v:
+                if not k in merged or merged[k] > v:
                     merged[k] = v
         return merged
-
-    def _parse_clients(self, log):
-        if search(r'Error', log) is not None:
-            raise ParseError('Client(s) panicked')
-
-        size = int(search(r'Transactions size: (\d+)', log).group(1))
-        rate = int(search(r'Transactions rate: (\d+)', log).group(1))
-
-        tmp = search(r'\[(.*Z) .* Start ', log).group(1)
-        start = self._to_posix(tmp)
-
-        misses = len(findall(r'rate too high', log))
-
-        tmp = findall(r'\[(.*Z) .* sample transaction (\d+)', log)
-        samples = {int(s): self._to_posix(t) for t, s in tmp}
-
-        return size, rate, start, misses, samples
 
     def _parse_nodes(self, log):
         if search(r'panic', log) is not None:
             raise ParseError('Client(s) panicked')
-
-        tmp_p = findall(r'\[(.*Z) .* Created B(\d+)\(([^ ]+)\)', log)
-        tmp = [(d, self._to_posix(t)) for t, _, d in tmp_p]
-        proposals = self._merge_results([tmp])
         
-        tmp = [(d+h, self._to_posix(t)) for t, h, d in tmp_p]
-        h_proposals = self._merge_results([tmp])
+        tmp = findall(r'\[INFO] (.*) pool.* Received Batch (\d+)', log)
+        batchs = { id:self._to_posix(t) for t,id in tmp}
+        
+        tmp = findall(r'\[INFO] (.*) core.* create Block round \d+ node \d+ batch_id (\d+)', log)
+        proposals = { id:self._to_posix(t) for t,id in tmp }
 
-        tmp_c = findall(r'\[(.*Z) .* Committed B(\d+)\(([^ ]+)\)', log)
-        tmp = [(d, self._to_posix(t)) for t, _, d in tmp_c]
+
+        tmp = findall(r'\[INFO] (.*) commitor.* commit Block round \d+ node \d+ batch_id (\d+)', log)
+        tmp = [(d, self._to_posix(t)) for t, d in tmp]
         commits = self._merge_results([tmp])
-
-        tmp = [(d+h, self._to_posix(t)) for t, h, d in tmp_c]
-        h_commits = self._merge_results([tmp])
-
-        tmp = findall(r'Payload ([^ ]+) contains (\d+) B', log)
-        sizes = {d: int(s) for d, s in tmp}
-
-        tmp = findall(r'Payload ([^ ]+) contains sample tx (\d+)', log)
-        samples = {int(s): d for d, s in tmp}
-
-        tmp = findall(r'.* WARN .* Timeout', log)
-        timeouts = len(tmp)
 
         configs = {
             'consensus': {
-                'timeout_delay': int(
-                    search(r'Consensus timeout delay .* (\d+)', log).group(1)
-                ),
-                'sync_retry_delay': int(
-                    search(
-                        r'Consensus synchronizer retry delay .* (\d+)', log
-                    ).group(1)
-                ),
-                'max_payload_size': int(
-                    search(r'Consensus max payload size .* (\d+)', log).group(1)
-                ),
-                'min_block_delay': int(
-                    search(r'Consensus min block delay .* (\d+)', log).group(1)
+                'faults': int(
+                    search(r'Consensus DDos: .*, Faults: (\d+)', log).group(1)
                 ),
             },
-            'mempool': {
-                'queue_capacity': int(
-                    search(r'Mempool queue capacity set to (\d+)', log).group(1)
+            'pool': {
+                'tx_size': int(
+                    search(r'Transaction pool tx size set to (\d+)', log).group(1)
                 ),
-                # 'sync_retry_delay': int(
-                #     search(
-                #         r'Mempool synchronizer retry delay .* (\d+)', log
-                #     ).group(1)
-                # ),
-                'max_payload_size': int(
-                    search(r'Mempool max payload size .* (\d+)', log).group(1)
+                'batch_size': int(
+                    search(r'Transaction pool batch size set to (\d+)', log).group(1)
                 ),
-                'min_block_delay': int(
-                    search(r'Mempool min block delay .* (\d+)', log).group(1)
+                'rate':int(
+                    search(r'Transaction pool tx rate set to (\d+)', log).group(1)
                 ),
             }
         }
 
-        return proposals, commits, sizes, samples, timeouts, configs,h_proposals,h_commits
+        return batchs,proposals, commits,configs
 
     def _to_posix(self, string):
-        x = datetime.fromisoformat(string.replace('Z', '+00:00'))
-        return datetime.timestamp(x)
+        # 解析时间字符串为 datetime 对象
+        dt = datetime.strptime(string, "%Y/%m/%d %H:%M:%S.%f")
+        # 转换为 Unix 时间戳
+        timestamp = dt.timestamp()
+        return timestamp
 
     def _consensus_throughput(self):
         if not self.commits:
             return 0, 0, 0
         start, end = min(self.proposals.values()), max(self.commits.values())
         duration = end - start
-        bytes = sum(self.sizes.values())
-        bps = bytes / duration
-        tps = bps / self.size[0]
-        return tps, bps, duration
+        tps = len(self.commits)*self.configs['pool']['batch_size'] / duration
+        return tps, duration
 
     def _consensus_latency(self):
-        latency = [c - self.proposals[d] for d, c in self.commits.items()]
+        latency = [c - self.proposals[d] for d, c in self.commits.items() if d in self.proposals]
         return mean(latency) if latency else 0
 
     def _end_to_end_throughput(self):
         if not self.commits:
             return 0, 0, 0
-        start, end = min(self.start), max(self.commits.values())
+        start, end = min(self.batchs.values()), max(self.commits.values())
         duration = end - start
-        bytes = sum(self.sizes.values())
-        bps = bytes / duration
-        tps = bps / self.size[0]
-        return tps, bps, duration
+        tps = len(self.commits)*self.configs['pool']['batch_size'] / duration
+        return tps, duration
 
     def _end_to_end_latency(self):
         latency = []
-        for sent, received in zip(self.sent_samples, self.received_samples):
-            for tx_id, batch_id in received.items():
-                if batch_id in self.commits:
-                    assert tx_id in sent  # We receive txs that we sent.
-                    start = sent[tx_id]
-                    end = self.commits[batch_id]
-                    latency += [end-start]   
+        for id,t in self.commits.items():
+            if id in self.batchs:
+                latency += [t-self.batchs[id]]
         return mean(latency) if latency else 0
 
     def result(self):
         consensus_latency = self._consensus_latency() * 1000
-        consensus_tps, consensus_bps, _ = self._consensus_throughput()
-        end_to_end_tps, end_to_end_bps, duration = self._end_to_end_throughput()
+        consensus_tps, _ = self._consensus_throughput()
+        end_to_end_tps, duration = self._end_to_end_throughput()
         end_to_end_latency = self._end_to_end_latency() * 1000
-
-        consensus_timeout_delay = self.configs[0]['consensus']['timeout_delay']
-        consensus_sync_retry_delay = self.configs[0]['consensus']['sync_retry_delay']
-        consensus_max_payload_size = self.configs[0]['consensus']['max_payload_size']
-        consensus_min_block_delay = self.configs[0]['consensus']['min_block_delay']
-        mempool_queue_capacity = self.configs[0]['mempool']['queue_capacity']
-        # mempool_sync_retry_delay = self.configs[0]['mempool']['sync_retry_delay']
-        mempool_max_payload_size = self.configs[0]['mempool']['max_payload_size']
-        mempool_min_block_delay = self.configs[0]['mempool']['min_block_delay']
-
+        tx_size = self.configs['pool']['tx_size']
+        batch_size = self.configs['pool']['batch_size']
+        rate = self.configs['pool']['rate']
         return (
             '\n'
             '-----------------------------------------\n'
@@ -203,27 +130,17 @@ class LogParser:
             f' Protocol: {self.protocol} \n'
             f' DDOS attack: {self.ddos} \n'
             f' Committee size: {self.committee_size} nodes\n'
-            f' Input rate: {sum(self.rate):,} tx/s\n'
-            f' Transaction size: {self.size[0]:,} B\n'
+            f' Input rate: {rate:,} tx/s\n'
+            f' Transaction size: {tx_size:,} B\n'
+            f' Batch size: {batch_size:,} tx/Batch'
             f' Faults: {self.faults} nodes\n'
             f' Execution time: {round(duration):,} s\n'
             '\n'
-            f' Consensus timeout delay: {consensus_timeout_delay:,} ms\n'
-            f' Consensus sync retry delay: {consensus_sync_retry_delay:,} ms\n'
-            f' Consensus max payloads size: {consensus_max_payload_size:,} B\n'
-            f' Consensus min block delay: {consensus_min_block_delay:,} ms\n'
-            f' Mempool queue capacity: {mempool_queue_capacity:,} B\n'
-            # f' Mempool sync retry delay: {mempool_sync_retry_delay:,} ms\n'
-            f' Mempool max payloads size: {mempool_max_payload_size:,} B\n'
-            f' Mempool min block delay: {mempool_min_block_delay:,} ms\n'
-            '\n'
             ' + RESULTS:\n'
             f' Consensus TPS: {round(consensus_tps):,} tx/s\n'
-            f' Consensus BPS: {round(consensus_bps):,} B/s\n'
             f' Consensus latency: {round(consensus_latency):,} ms\n'
             '\n'
             f' End-to-end TPS: {round(end_to_end_tps):,} tx/s\n'
-            f' End-to-end BPS: {round(end_to_end_bps):,} B/s\n'
             f' End-to-end latency: {round(end_to_end_latency):,} ms\n'
             '-----------------------------------------\n'
         )
@@ -238,7 +155,7 @@ class LogParser:
         assert isinstance(directory, str)
 
         nodes = []
-        for filename in sorted(glob(join(directory, 'node-*-info.log'))):
+        for filename in sorted(glob(join(directory, 'node-info-*.log'))):
             with open(filename, 'r') as f:
                 nodes += [f.read()]
 

@@ -25,7 +25,7 @@ func TestNetwork(t *testing.T) {
 					Typ:  ind,
 					Data: []byte("dcz"),
 				},
-				Address: []string{addr},
+				Address: addr,
 			}
 			sender.Send(msg)
 		}(i)

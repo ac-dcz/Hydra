@@ -80,6 +80,7 @@ func main() {
 			loglevel,
 			nodeID,
 		); err != nil {
+			logger.Error.Println(err)
 			panic(err)
 		} else {
 			//blocking
@@ -88,6 +89,7 @@ func main() {
 	}
 
 	if err := runCmd.Execute(); err != nil {
+		logger.Error.Println(err)
 		panic(err)
 	}
 

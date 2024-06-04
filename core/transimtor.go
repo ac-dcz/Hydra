@@ -12,9 +12,11 @@ import (
 )
 
 type codec struct {
-	types   map[int]reflect.Type
-	encoder *gob.Encoder
-	decoder *gob.Decoder
+	types    map[int]reflect.Type
+	bufEns   map[NodeID]*bytes.Buffer
+	encoders map[NodeID]*gob.Encoder
+	decoders map[NodeID]*gob.Decoder
+	bufDes   map[NodeID]*bytes.Buffer
 }
 
 type Transmitor struct {
@@ -22,9 +24,7 @@ type Transmitor struct {
 	receiver   *network.Receiver
 	cc         *codec
 	mu         sync.Mutex
-	bufEn      *bytes.Buffer
-	bufDe      *bytes.Buffer
-	recvCh     chan Message
+	recvCh     chan ConsensusMessage
 	msgCh      chan *network.NetMessage
 	parameters Parameters
 	committee  Committee
@@ -37,21 +37,31 @@ func NewTransmitor(
 	parameters Parameters,
 	committee Committee,
 ) *Transmitor {
+
 	tr := &Transmitor{
 		sender:     sender,
 		receiver:   receiver,
 		mu:         sync.Mutex{},
-		bufEn:      bytes.NewBuffer(nil),
-		bufDe:      bytes.NewBuffer(nil),
-		recvCh:     make(chan Message, 1_000),
+		recvCh:     make(chan ConsensusMessage, 1_000),
 		msgCh:      make(chan *network.NetMessage, 1_000),
 		parameters: parameters,
 		committee:  committee,
 	}
+
 	tr.cc = &codec{
-		types:   types,
-		encoder: gob.NewEncoder(tr.bufEn),
-		decoder: gob.NewDecoder(tr.bufDe),
+		types:    types,
+		bufEns:   make(map[NodeID]*bytes.Buffer),
+		encoders: make(map[NodeID]*gob.Encoder),
+		bufDes:   make(map[NodeID]*bytes.Buffer),
+		decoders: make(map[NodeID]*gob.Decoder),
+	}
+
+	for i := 0; i < committee.Size(); i++ {
+		buf1, buf2 := bytes.NewBuffer(nil), bytes.NewBuffer(nil)
+		tr.cc.bufEns[NodeID(i)] = buf1
+		tr.cc.encoders[NodeID(i)] = gob.NewEncoder(buf1)
+		tr.cc.bufDes[NodeID(i)] = buf2
+		tr.cc.decoders[NodeID(i)] = gob.NewDecoder(buf2)
 	}
 
 	go func() {
@@ -62,12 +72,12 @@ func NewTransmitor(
 
 	go func() {
 		for msg := range tr.receiver.RecvChannel() {
-			_, _ = tr.bufDe.Write(msg.Data)
+			tr.cc.bufDes[NodeID(msg.From)].Write(msg.Data)
 			val := reflect.New(tr.cc.types[msg.Typ]).Interface()
-			if err := tr.cc.decoder.Decode(val); err != nil {
-				logger.Error.Println(err)
+			if err := tr.cc.decoders[NodeID(msg.From)].Decode(val); err != nil {
+				logger.Error.Println(msg.Typ, err)
 			} else {
-				tr.recvCh <- val.(Message)
+				tr.recvCh <- val.(ConsensusMessage)
 			}
 		}
 	}()
@@ -75,34 +85,27 @@ func NewTransmitor(
 	return tr
 }
 
-func (tr *Transmitor) Send(from, to NodeID, msg Message) error {
+func (tr *Transmitor) _send(from, to NodeID, msg ConsensusMessage) error {
 	//Address
-	var addr []string
-	if to == NONE {
-		addr = tr.committee.BroadCast(from)
-	} else {
-		addr = append(addr, tr.committee.Address(to))
-	}
+	var addr = tr.committee.Address(to)
 
 	netMsg := &network.NetMessage{
 		Msg: &network.Messgae{
-			Typ: msg.MsgType(),
+			Typ:  msg.MsgType(),
+			From: int(from),
 		},
 		Address: addr,
 	}
 
 	//Encoder
 	tr.mu.Lock()
-	if err := tr.cc.encoder.Encode(msg); err != nil {
-		logger.Warn.Println(err)
-		return err
-	}
-	data, err := io.ReadAll(tr.bufEn)
-	if err != nil {
+	if err := tr.cc.encoders[to].Encode(msg); err != nil {
+		tr.cc.bufEns[to].Reset()
 		tr.mu.Unlock()
 		logger.Error.Println(err)
 		return err
 	}
+	data, _ := io.ReadAll(tr.cc.bufEns[to])
 	netMsg.Msg.Data = data
 	tr.mu.Unlock()
 
@@ -118,10 +121,24 @@ func (tr *Transmitor) Send(from, to NodeID, msg Message) error {
 	return nil
 }
 
-func (tr *Transmitor) Recv() Message {
+func (tr *Transmitor) Send(from, to NodeID, msg ConsensusMessage) error {
+	if to == NONE {
+		for i := 0; i < tr.committee.Size(); i++ {
+			if i != int(from) {
+				tr._send(from, NodeID(i), msg)
+			}
+		}
+	} else {
+		tr._send(from, to, msg)
+	}
+
+	return nil
+}
+
+func (tr *Transmitor) Recv() ConsensusMessage {
 	return <-tr.recvCh
 }
 
-func (tr *Transmitor) RecvChannel() chan Message {
+func (tr *Transmitor) RecvChannel() chan ConsensusMessage {
 	return tr.recvCh
 }

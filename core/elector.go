@@ -55,7 +55,7 @@ func NewElector(sigService *crypto.SigService, committee Committee) *Elector {
 
 func (e *Elector) Add(elect *ElectMsg) (NodeID, error) {
 
-	waveNum := elect.Round % WaveRound
+	waveNum := elect.Round / WaveRound
 	a, ok := e.aggregator[waveNum]
 	if !ok {
 		a = &Aggregator{

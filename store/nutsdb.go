@@ -1,6 +1,8 @@
 package store
 
 import (
+	"lightDAG/logger"
+
 	"github.com/nutsdb/nutsdb"
 )
 
@@ -13,12 +15,14 @@ const DefaultBucket = "DefaultBucket"
 func NewDefaultNutsDB(dir string) *NutsDB {
 	db, err := nutsdb.Open(nutsdb.DefaultOptions, nutsdb.WithDir(dir))
 	if err != nil {
+		logger.Error.Println(err)
 		panic(err)
 	}
 	if err := db.Update(
 		func(tx *nutsdb.Tx) error {
 			return tx.NewBucket(nutsdb.DataStructureBTree, DefaultBucket)
 		}); err != nil {
+		logger.Error.Println(err)
 		panic(err)
 	}
 	return &NutsDB{

@@ -14,14 +14,12 @@ class LocalBench:
 
     def __init__(self, bench_parameters_dict, node_parameters_dict):
         try:
-            self.ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self.ts = datetime.now().strftime("%Y-%m-%dv%H:%M:%S")
             self.bench_parameters = BenchParameters(bench_parameters_dict)
             self.node_parameters = NodeParameters(node_parameters_dict)
         except ConfigError as e:
             raise BenchError('Invalid nodes or bench parameters', e)
 
-    # def __getattr__(self, attr):
-    #     return getattr(self.bench_parameters, attr)
 
     def _background_run(self, command, log_file):
         name = splitext(basename(log_file))[0]
@@ -40,11 +38,11 @@ class LocalBench:
         Print.heading('Starting local benchmark')
 
         # Kill any previous testbed.
-        # self._kill_nodes()
+        self._kill_nodes()
 
         try:
             Print.info('Setting up testbed...')
-            nodes, rate,batch_size = self.bench_parameters.nodes[0], self.bench_parameters.rate[0],self.bench_parameters.batch_szie[0]
+            nodes, rate,batch_size = self.bench_parameters.nodes[0], self.bench_parameters.rate,self.bench_parameters.batch_szie[0]
             self.node_parameters.json['pool']['rate'] = rate
             self.node_parameters.json['pool']['batch_size'] = batch_size 
             # Cleanup all files.
@@ -66,11 +64,11 @@ class LocalBench:
 
             # Generate threshold signature files.
             tss_keys = []
-            key_files = [PathMaker.threshold_key_file(i) for i in range(nodes)]
+            threshold_key_files = [PathMaker.threshold_key_file(i) for i in range(nodes)]
             N , T = nodes , 2 * (( nodes - 1 ) // 3) + 1
             cmd = CommandMaker.generate_tss_key(path = "./", N = N, T = T).split()
             subprocess.run(cmd, check=True)
-            for filename in key_files:
+            for filename in threshold_key_files:
                 tss_keys += [TSSKey.from_file(filename)]
 
             # Generate committee file
@@ -85,40 +83,40 @@ class LocalBench:
             Print.info(f'tx_size {self.node_parameters.tx_size} byte, batch_size {batch_size}, rate {rate} tx/s')
             Print.info(f'DDOS attack {self.node_parameters.ddos}')
 
-            # # Run the nodes.
-            # dbs = [PathMaker.db_path(i) for i in range(nodes)]
-            # node_logs = [PathMaker.node_log_file(i,self.ts) for i in range(nodes)]
-            # threshold_key_files = [PathMaker.threshold_key_file(i,self.ts) for i in range(nodes)]
-            # for id,key_file, threshold_key_file, db, log_file in zip(ids,key_files, threshold_key_files, dbs, node_logs):
-            #     cmd = CommandMaker.run_node(
-            #         id,
-            #         key_file,
-            #         threshold_key_file,
-            #         PathMaker.committee_file(),
-            #         db,
-            #         PathMaker.parameters_file(),
-            #         self.ts,
-            #         debug=debug
-            #     )
-            #     self._background_run(cmd, log_file)
+            # Run the nodes.
+            dbs = [PathMaker.db_path(i) for i in range(nodes)]
+            node_logs = [PathMaker.node_log_info_file(i,self.ts) for i in range(nodes)]
 
-            # # Wait for the nodes to synchronize
-            # Print.info('Waiting for the nodes to synchronize...')
-            # sleep(2 * self.node_parameters.sync_timeout / 1000)
+            for id,key_file, threshold_key_file, db, log_file in zip(ids,key_files, threshold_key_files, dbs, node_logs):
+                cmd = CommandMaker.run_node(
+                    id,
+                    key_file,
+                    threshold_key_file,
+                    PathMaker.committee_file(),
+                    db,
+                    PathMaker.parameters_file(),
+                    self.ts,
+                    debug=debug
+                )
+                self._background_run(cmd, log_file)
 
-            # # Wait for all transactions to be processed.
-            # Print.info(f'Running benchmark ({self.bench_parameters.duration} sec)...')
-            # sleep(self.bench_parameters.duration)
-            # self._kill_nodes()
+            # Wait for the nodes to synchronize
+            Print.info('Waiting for the nodes to synchronize...')
+            sleep(2 * self.node_parameters.sync_timeout / 1000)
 
-            # # Parse logs and return the parser.
-            # Print.info('Parsing logs...')
-            # return LogParser.process(
-            #     PathMaker.logs_path(self.ts), 
-            #     self.node_parameters.faults, 
-            #     self.bench_parameters.protocol, 
-            #     self.node_parameters.ddos
-            # )
+            # Wait for all transactions to be processed.
+            Print.info(f'Running benchmark ({self.bench_parameters.duration} sec)...')
+            sleep(self.bench_parameters.duration)
+            self._kill_nodes()
+
+            # Parse logs and return the parser.
+            Print.info('Parsing logs...')
+            return LogParser.process(
+                PathMaker.logs_path(self.ts), 
+                self.node_parameters.faults, 
+                self.bench_parameters.protocol, 
+                self.node_parameters.ddos
+            )
 
         except (subprocess.SubprocessError, ParseError) as e:
             self._kill_nodes()

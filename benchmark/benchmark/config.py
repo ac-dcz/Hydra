@@ -107,11 +107,6 @@ class BenchParameters:
             nodes = nodes if isinstance(nodes, list) else [nodes]
             if not nodes or any(x <= 0 for x in nodes):
                 raise ConfigError('Missing or invalid number of nodes')
-
-            rate = json['rate'] 
-            rate = rate if isinstance(rate, list) else [rate]
-            if not rate:
-                raise ConfigError('Missing input rate')
             
             batch_szie = json['batch_size'] 
             batch_szie = batch_szie if isinstance(batch_szie, list) else [batch_szie]
@@ -120,10 +115,11 @@ class BenchParameters:
 
             self.nodes = [int(x) for x in nodes]
             self.log_level = int(json['log_level'])
-            self.rate = [int(x) for x in rate]
+            self.rate = int(json['rate'])
             self.batch_szie = [int(x) for x in batch_szie]
             self.duration = int(json['duration'])
             self.runs = int(json['runs']) if 'runs' in json else 1
+            self.node_instance = int(json['node_instance']) if 'node_instance' in json else 1
             self.protocol = json['protocol_name']
 
         except KeyError as e:

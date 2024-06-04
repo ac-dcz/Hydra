@@ -137,7 +137,9 @@ func (local *LocalDAG) UpdateGrade(round, node, grade int) {
 			slot = make(map[NodeID]int)
 			local.gradeDAG[round] = slot
 		}
-		slot[NodeID(node)] = grade
+		if grade > slot[NodeID(node)] {
+			slot[NodeID(node)] = grade
+		}
 
 		local.muGrade.Unlock()
 	}
@@ -222,8 +224,10 @@ func (c *Commitor) commitLeaderQueue(q [][2]int) {
 			queue2 []NodeID
 			sortC  []crypto.Digest
 		)
-		if d, ok := c.localDAG.GetReceivedBlock(leader, NodeID(round)); !ok {
-			panic("commitor : not received block")
+		if d, ok := c.localDAG.GetReceivedBlock(round, NodeID(leader)); !ok {
+			logger.Error.Println("commitor : not received block")
+			// panic("commitor : not received block")
+			continue
 		} else {
 			queue1, queue2 = append(queue1, d), append(queue2, NodeID(leader))
 			for len(queue1) > 0 {
@@ -239,6 +243,7 @@ func (c *Commitor) commitLeaderQueue(q [][2]int) {
 						c.commitBlocks[block] = struct{}{} // commit flag
 
 						if ref, ok := c.localDAG.GetReceivedBlockReference(round, node); !ok {
+							logger.Error.Println("commitor : not received block")
 							panic("commitor : not received block")
 						} else {
 

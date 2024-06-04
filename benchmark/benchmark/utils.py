@@ -11,30 +11,26 @@ class BenchError(Exception):
 
 class PathMaker:
     @staticmethod
-    def binary_path():
-        return join('..', 'target', 'release')
-
-    @staticmethod
-    def node_crate_path():
-        return join('..', 'node')
-
+    def execute_file():
+        return "main"
+    
     @staticmethod
     def committee_file():
-        return 'committee.json'
+        return '.committee.json'
 
     @staticmethod
     def parameters_file():
-        return 'parameters.json'
+        return '.parameters.json'
 
     @staticmethod
     def key_file(i):
         assert isinstance(i, int) and i >= 0
-        return f'node-key-{i}.json'
+        return f'.node-key-{i}.json'
 
     @staticmethod
     def threshold_key_file(i):
         assert isinstance(i, int) and i >= 0
-        return f'node-ts-key-{i}.json'
+        return f'.node-ts-key-{i}.json'
         
     @staticmethod
     def db_path(i):
@@ -47,9 +43,24 @@ class PathMaker:
         return f'logs/{ts}'
 
     @staticmethod
-    def node_log_file(i,ts):
+    def node_log_info_file(i,ts):
         assert isinstance(i, int) and i >= 0
-        return join(PathMaker.logs_path(ts), f'node-{i}.log')
+        return join(PathMaker.logs_path(ts), f'node-info-{i}.log')
+    
+    @staticmethod
+    def node_log_debug_file(i,ts):
+        assert isinstance(i, int) and i >= 0
+        return join(PathMaker.logs_path(ts), f'node-debug-{i}.log')
+    
+    @staticmethod
+    def node_log_warn_file(i,ts):
+        assert isinstance(i, int) and i >= 0
+        return join(PathMaker.logs_path(ts), f'node-warn-{i}.log')
+    
+    @staticmethod
+    def node_log_error_file(i,ts):
+        assert isinstance(i, int) and i >= 0
+        return join(PathMaker.logs_path(ts), f'node-error-{i}.log')
 
     @staticmethod
     def results_path(ts):
@@ -57,9 +68,9 @@ class PathMaker:
         return f'results/{ts}'
 
     @staticmethod
-    def result_file(nodes, rate, tx_size, faults,ts):
+    def result_file(nodes, rate, tx_size, batch_size ,faults,ts):
         return join(
-            PathMaker.results_path(ts), f'bench-{nodes}-{rate}-{tx_size}-{faults}.txt'
+            PathMaker.results_path(ts), f'bench-{nodes}-{rate}-{tx_size}-{batch_size}-{faults}.txt'
         )
 
 

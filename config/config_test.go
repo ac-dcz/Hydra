@@ -15,7 +15,7 @@ func TestGenrateTsKeys(t *testing.T) {
 }
 
 func TestFromFileGenKey(t *testing.T) {
-	filename := "./node-key-0.json"
+	filename := "./.node-key-0.json"
 	pub, pri, err := GenKeysFromFile(filename)
 	if err != nil {
 		t.Fatal(err)
@@ -32,7 +32,7 @@ func TestFromFileGenKey(t *testing.T) {
 func TestFromFileGenTsKey(t *testing.T) {
 	var shareKeys []crypto.SecretShareKey
 	for i := 0; i < 4; i++ {
-		filename := fmt.Sprintf("./node-ts-key-%d.json", i)
+		filename := fmt.Sprintf("./.node-ts-key-%d.json", i)
 		shareKey, err := GenTsKeyFromFile(filename)
 		if err != nil {
 			t.Fatal(err)
@@ -100,7 +100,7 @@ func TestSmapleCommittee(t *testing.T) {
 }
 
 func TestGenParametersFromFile(t *testing.T) {
-	poolP, coreP, err := GenParamatersFromFile("./parameters.json")
+	poolP, coreP, err := GenParamatersFromFile("./.parameters.json")
 	if err != nil {
 		t.Fatal(err)
 	} else {
@@ -110,7 +110,7 @@ func TestGenParametersFromFile(t *testing.T) {
 }
 
 func TestGenCommitteeFromFile(t *testing.T) {
-	committee, err := GenCommitteeFromFile("./committee.json")
+	committee, err := GenCommitteeFromFile("./.committee.json")
 	if err != nil {
 		t.Fatal(err)
 	} else {
