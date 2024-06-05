@@ -119,7 +119,7 @@ class Bench:
 
         # Upload execute files.
         hosts = self.manager.hosts(flat=True)
-        progress = progress_bar(hosts, prefix='Uploading config files:')
+        progress = progress_bar(hosts, prefix='Uploading main files:')
         for host in progress:
             c = Connection(host, user='root', connect_kwargs=self.connect)
             c.put(PathMaker.execute_file(),'.')
@@ -208,7 +208,7 @@ class Bench:
 
         # Wait for the nodes to synchronize
         Print.info('Waiting for the nodes to synchronize...')
-        sleep(30)
+        sleep(10)
 
         # Wait for all transactions to be processed.
         duration = bench_parameters.duration
@@ -241,7 +241,7 @@ class Bench:
             c = Connection(host, user='root', connect_kwargs=self.connect)
             for j in range(node_instance):
                 c.get(PathMaker.node_log_info_file(i*node_instance+j,ts), local=PathMaker.node_log_info_file(i*node_instance+j,ts))
-                c.get(PathMaker.node_log_debug_file(i*node_instance+j,ts), local=PathMaker.node_log_debug_file(i*node_instance+j,ts))
+                # c.get(PathMaker.node_log_debug_file(i*node_instance+j,ts), local=PathMaker.node_log_debug_file(i*node_instance+j,ts))
                 c.get(PathMaker.node_log_error_file(i*node_instance+j,ts), local=PathMaker.node_log_error_file(i*node_instance+j,ts))
                 c.get(PathMaker.node_log_warn_file(i*node_instance+j,ts), local=PathMaker.node_log_warn_file(i*node_instance+j,ts))
 

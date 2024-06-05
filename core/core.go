@@ -114,15 +114,6 @@ func (corer *Core) checkReference(block *Block) (bool, []crypto.Digest) {
 	return ok, missDeigest
 }
 
-// func (corer *Core) retrieveBlock(block *Block) {
-// 	var temp []crypto.Digest
-// 	for d := range block.Reference {
-// 		temp = append(temp, d)
-// 	}
-// 	_, missDeigest := corer.localDAG.IsReceived(temp...)
-// 	corer.retriever.requestBlocks(missDeigest, block.Author)
-// }
-
 /*********************************Protocol***********************************************/
 func (corer *Core) generatorBlock(round int) *Block {
 	logger.Debug.Printf("procesing generatorBlock round %d \n", round)
@@ -243,12 +234,15 @@ func (corer *Core) handlePBCPropose(propose *PBCProposeMsg) error {
 		return err
 	}
 
-	//Step 3: check reference
-	if ok, miss := corer.checkReference(propose.B); !ok {
-		//retrieve miss block
-		corer.retriever.requestBlocks(miss, propose.Author, propose.B.Hash())
+	// if previous round is GPBC round just only check GRBC-qc
+	if (propose.Round-1)%WaveRound != 0 {
+		// Step 3: check reference
+		if ok, miss := corer.checkReference(propose.B); !ok {
+			//retrieve miss block
+			corer.retriever.requestBlocks(miss, propose.Author, propose.B.Hash())
 
-		return ErrReference(propose.MsgType(), propose.Round, int(propose.Author))
+			return ErrReference(propose.MsgType(), propose.Round, int(propose.Author))
+		}
 	}
 
 	//Step 4
@@ -330,7 +324,6 @@ func (corer *Core) handleElect(elect *ElectMsg) error {
 		logger.Debug.Printf("Elector: wave %d leader %d grade %d \n", elect.Round/WaveRound, leader, grade)
 		//is grade two?
 		if grade == GradeTwo {
-			logger.Debug.Println("Notify to commit")
 			corer.commitor.NotifyToCommit(elect.Round / WaveRound)
 		}
 
@@ -364,7 +357,10 @@ func (corer *Core) handleReplyBlock(reply *ReplyBlockMsg) error {
 		if block.Round%WaveRound == 0 {
 			corer.localDAG.UpdateGrade(block.Round, int(block.Author), GradeOne)
 		}
+
+		//maybe execute more one
 		storeBlock(corer.store, block)
+
 		corer.handleOutPut(block.Round, block.Author, block.Hash(), block.Reference)
 	}
 
@@ -391,7 +387,6 @@ func (corer *Core) handleCallBack(req *callBackReq) error {
 	logger.Debug.Printf("procesing block call back round %d node %d \n", req.round, req.nodeID)
 
 	//Update grade
-	logger.Debug.Printf("grbc round %d node %d grade %d \n", req.round, req.nodeID, req.grade)
 	corer.localDAG.UpdateGrade(req.round, int(req.nodeID), req.grade)
 
 	//try to advance round
@@ -449,8 +444,10 @@ func (corer *Core) Run() {
 				err = corer.handleCallBack(cbReq)
 			}
 		}
+
 		if err != nil {
 			logger.Warn.Println(err)
 		}
+
 	}
 }

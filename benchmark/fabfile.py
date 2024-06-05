@@ -1,17 +1,20 @@
+import subprocess
 from fabric import task
 
+from benchmark.commands import CommandMaker
 from benchmark.local import LocalBench
 from benchmark.logs import ParseError, LogParser
 from benchmark.utils import BenchError,Print
 from alibaba.instance import InstanceManager
 from alibaba.remote import Bench
+
 @task
 def local(ctx):
     ''' Run benchmarks on localhost '''
     bench_params = {
         'nodes': 4,
         'duration': 10,
-        'rate': 2_000,                  # tx send rate
+        'rate': 3_000,                  # tx send rate
         'batch_size': 800,              # the max number of tx that can be hold 
         'log_level': 0b1111,            # 0x1 infolevel 0x2 debuglevel 0x4 warnlevel 0x8 errorlevel
         'protocol_name': "lightDAG"
@@ -19,7 +22,7 @@ def local(ctx):
     node_params = {
         "pool": {
             # "rate": 1_000,              # ignore: tx send rate 
-            "tx_size": 250,                # tx size
+            "tx_size": 250,               # tx size
             # "batch_size": 200,          # ignore: the max number of tx that can be hold 
             "max_queue_size": 10_000 
 	    },
@@ -38,7 +41,6 @@ def local(ctx):
     except BenchError as e:
         Print.error(e)
 
-
 @task
 def create(ctx, nodes=2):
     ''' Create a testbed'''
@@ -46,7 +48,6 @@ def create(ctx, nodes=2):
         InstanceManager.make().create_instances(nodes)
     except BenchError as e:
         Print.error(e)
-
 
 @task
 def destroy(ctx):
@@ -57,7 +58,7 @@ def destroy(ctx):
         Print.error(e)
 
 @task
-def deleteConfig(ctx):
+def cleanremote(ctx):
     ''' Destroy the testbed '''
     try:
         InstanceManager.make().delete_security()
@@ -71,7 +72,6 @@ def start(ctx, max=10):
         InstanceManager.make().start_instances(max)
     except BenchError as e:
         Print.error(e)
-
 
 @task
 def stop(ctx):
@@ -96,16 +96,14 @@ def info(ctx):
     except BenchError as e:
         Print.error(e)
 
-
-
 @task
 def remote(ctx):
     ''' Run benchmarks on AWS '''
     bench_params = {
-        'nodes': [1],
-        'node_instance': 4,               # the number of running instance for a node  (max = 4)
-        'duration': 10,
-        'rate': 2_000,                  # tx send rate
+        'nodes': [4],
+        'node_instance': 2,               # the number of running instance for a node  (max = 4)
+        'duration': 20,
+        'rate': 3_000,                    # tx send rate
         'batch_size': [800],              # the max number of tx that can be hold 
         'log_level': 0b1111,              # 0x1 infolevel 0x2 debuglevel 0x4 warnlevel 0x8 errorlevel
         'protocol_name': "lightDAG",
@@ -114,12 +112,12 @@ def remote(ctx):
     node_params = {
         "pool": {
             # "rate": 1_000,              # ignore: tx send rate 
-            "tx_size": 250,                # tx size
+            "tx_size": 64,                # tx size
             # "batch_size": 200,          # ignore: the max number of tx that can be hold 
             "max_queue_size": 10_000 
 	    },
         "consensus": {
-            "sync_timeout": 500,        # node sync time
+            "sync_timeout": 1_000,      # node sync time
             "network_delay": 2_000,     # network delay
             "min_block_delay": 0,       # send block delay
             "ddos": False,              # DDOS attack
@@ -131,8 +129,6 @@ def remote(ctx):
         Bench(ctx).run(bench_params, node_params, debug=False)
     except BenchError as e:
         Print.error(e)
-
-
 
 @task
 def kill(ctx):
@@ -149,6 +145,11 @@ def download(ctx,node_instance=4,ts="2024-06-04v10:15:10"):
         print(Bench(ctx).download(node_instance,ts).result())
     except BenchError as e:
         Print.error(e)
+
+@task
+def clean(ctx):
+    cmd = f'{CommandMaker.cleanup_configs()};rm -f main'
+    subprocess.run([cmd], shell=True, stderr=subprocess.DEVNULL)
 
 @task
 def logs(ctx):
