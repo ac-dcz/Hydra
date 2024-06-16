@@ -1,6 +1,8 @@
-package network
+package test
 
 import (
+	"lightDAG/core"
+	"lightDAG/network"
 	"sync"
 	"testing"
 	"time"
@@ -8,11 +10,12 @@ import (
 
 func TestNetwork(t *testing.T) {
 	// logger.SetOutput(logger.InfoLevel|logger.DebugLevel|logger.ErrorLevel|logger.WarnLevel, logger.NewFileWriter("./default.log"))
+	cc := network.NewCodec(core.DefaultMsgTypes)
 	addr := ":8080"
-	receiver := NewReceiver(addr)
+	receiver := network.NewReceiver(addr, cc)
 	go receiver.Run()
 	time.Sleep(time.Second)
-	sender := NewSender()
+	sender := network.NewSender(cc)
 	go sender.Run()
 
 	wg := sync.WaitGroup{}
@@ -20,20 +23,20 @@ func TestNetwork(t *testing.T) {
 		wg.Add(1)
 		go func(ind int) {
 			defer wg.Done()
-			msg := &NetMessage{
-				Msg: &Messgae{
-					Typ:  ind,
-					Data: []byte("dcz"),
+			msg := &network.NetMessage{
+				Msg: &core.EchoMsg{
+					Author:   1,
+					Proposer: 1,
 				},
-				Address: addr,
+				Address: []string{addr},
 			}
 			sender.Send(msg)
 		}(i)
 	}
 
 	for i := 0; i < 10; i++ {
-		msg := receiver.Recv()
-		t.Logf("Messsage: %d-%s\n", msg.Typ, msg.Data)
+		msg := receiver.Recv().(*core.EchoMsg)
+		t.Logf("Messsage type: %d Data: %#v\n", msg.MsgType(), msg)
 	}
 	wg.Wait()
 }

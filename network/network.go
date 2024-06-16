@@ -1,47 +1,44 @@
 package network
 
 import (
-	"encoding/gob"
 	"io"
 	"lightDAG/logger"
 	"net"
 )
 
 type NetMessage struct {
-	Msg     *Messgae
-	Address string
-}
-
-type Messgae struct {
-	From int
-	Typ  int
-	Data []byte
+	Msg     Messgae
+	Address []string
 }
 
 type Sender struct {
 	msgCh chan *NetMessage
-	conns map[string]chan<- *Messgae
+	conns map[string]chan<- Messgae
+	cc    *Codec
 }
 
-func NewSender() *Sender {
+func NewSender(cc *Codec) *Sender {
 	sender := &Sender{
 		msgCh: make(chan *NetMessage, 1000),
-		conns: make(map[string]chan<- *Messgae),
+		conns: make(map[string]chan<- Messgae),
+		cc:    cc,
 	}
 	return sender
 }
 
 func (s *Sender) Run() {
 	for msg := range s.msgCh {
-		if conn, ok := s.conns[msg.Address]; ok {
-			conn <- msg.Msg
-		} else {
-			conn, err := s.connect(msg.Address)
-			if err != nil {
-				continue
-			} else {
-				s.conns[msg.Address] = conn
+		for _, addr := range msg.Address {
+			if conn, ok := s.conns[addr]; ok {
 				conn <- msg.Msg
+			} else {
+				conn, err := s.connect(addr)
+				if err != nil {
+					continue
+				} else {
+					s.conns[addr] = conn
+					conn <- msg.Msg
+				}
 			}
 		}
 	}
@@ -55,8 +52,8 @@ func (s *Sender) SendChannel() chan<- *NetMessage {
 	return s.msgCh
 }
 
-func (s *Sender) connect(addr string) (chan<- *Messgae, error) {
-	msgCh := make(chan *Messgae, 1000)
+func (s *Sender) connect(addr string) (chan<- Messgae, error) {
+	msgCh := make(chan Messgae, 1000)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		logger.Warn.Printf("Failed to connect to %s: %v \n", addr, err)
@@ -64,9 +61,9 @@ func (s *Sender) connect(addr string) (chan<- *Messgae, error) {
 	}
 	logger.Info.Printf("Outgoing connection established with %s \n", addr)
 	go func() {
-		encoder := gob.NewEncoder(conn)
+		cc := s.cc.Bind(conn)
 		for msg := range msgCh {
-			if err := encoder.Encode(msg); err != nil {
+			if err := cc.Write(msg); err != nil {
 				logger.Warn.Printf("Failed to send message to %s: %v \n", addr, err)
 			} else {
 				logger.Debug.Printf("Successfully sent message to %s \n", addr)
@@ -78,14 +75,16 @@ func (s *Sender) connect(addr string) (chan<- *Messgae, error) {
 
 type Receiver struct {
 	addr string
-	msg  chan *Messgae
+	msg  chan Messgae
+	cc   *Codec
 }
 
-func NewReceiver(addr string) *Receiver {
+func NewReceiver(addr string, cc *Codec) *Receiver {
 
 	receiver := &Receiver{
 		addr: addr,
-		msg:  make(chan *Messgae, 1000),
+		msg:  make(chan Messgae, 1000),
+		cc:   cc,
 	}
 
 	return receiver
@@ -111,24 +110,24 @@ func (recv *Receiver) Run() {
 }
 
 func (recv *Receiver) serveConn(conn net.Conn) {
-	decoder := gob.NewDecoder(conn)
+	cc := recv.cc.Bind(conn)
 	for {
-		msg := &Messgae{}
-		if err := decoder.Decode(msg); err != nil {
+		if msg, err := cc.Read(); err != nil {
 			// logger.Debug.Printf("Received %v", msg)
 			if err != io.EOF {
 				logger.Warn.Printf("failed to receive : %v \n", err)
 			}
 			return
+		} else {
+			recv.msg <- msg
 		}
-		recv.msg <- msg
 	}
 }
 
-func (recv *Receiver) Recv() *Messgae {
+func (recv *Receiver) Recv() Messgae {
 	return <-recv.msg
 }
 
-func (recv *Receiver) RecvChannel() <-chan *Messgae {
+func (recv *Receiver) RecvChannel() <-chan Messgae {
 	return recv.msg
 }
