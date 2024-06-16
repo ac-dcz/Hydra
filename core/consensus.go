@@ -41,12 +41,12 @@ func Consensus(
 	}
 
 	//Step 1: invoke network
+	cc := network.NewCodec(DefaultMsgTypes)
 	addr := fmt.Sprintf(":%s", strings.Split(committee.Address(id), ":")[1])
-	sender, receiver := network.NewSender(), network.NewReceiver(addr)
+	sender, receiver := network.NewSender(cc), network.NewReceiver(addr, cc)
 	go sender.Run()
 	go receiver.Run()
-
-	transmitor := NewTransmitor(sender, receiver, DefaultMsgTypes, parameters, committee)
+	transmitor := NewTransmitor(sender, receiver, parameters, committee)
 
 	//Step 2: Waiting for all nodes to be online
 	logger.Info.Println("Waiting for all nodes to be online...")

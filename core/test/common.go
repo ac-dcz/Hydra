@@ -54,6 +54,8 @@ func GetMessage(Typ int, sigService *crypto.SigService) core.ConsensusMessage {
 		msg, _ = core.NewRequestBlock(-1, []crypto.Digest{GetDigest()}, -1, 0, sigService)
 	case core.ElectType:
 		msg, _ = core.NewElectMsg(-1, -1, sigService)
+	default:
+		msg, _ = core.NewGRBCProposeMsg(-1, -1, GetBlock(10), sigService)
 	}
 	return msg
 }

@@ -17,17 +17,17 @@ func TestTransimtor(t *testing.T) {
 	wg := sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 	var node1, node2 core.NodeID = 0, 1
-
+	cc := network.NewCodec(core.DefaultMsgTypes)
 	//node 1
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		sigService := crypto.NewSigService(priKeys[node1], shareKeys[node1])
 		addr := committee.Address(node1)
-		sender, receiver := network.NewSender(), network.NewReceiver(addr)
+		sender, receiver := network.NewSender(cc), network.NewReceiver(addr, cc)
 		go sender.Run()
 		go receiver.Run()
-		transmitor := core.NewTransmitor(sender, receiver, core.DefaultMsgTypes, parameters, committee)
+		transmitor := core.NewTransmitor(sender, receiver, parameters, committee)
 		time.Sleep(time.Second * 2)
 		for i := 0; i < 20; i++ {
 			go transmitor.Send(node1, node2, GetMessage(i%core.TotalNums, sigService))
@@ -48,10 +48,10 @@ func TestTransimtor(t *testing.T) {
 		defer wg.Done()
 		sigService := crypto.NewSigService(priKeys[node2], shareKeys[node2])
 		addr := committee.Address(node2)
-		sender, receiver := network.NewSender(), network.NewReceiver(addr)
+		sender, receiver := network.NewSender(cc), network.NewReceiver(addr, cc)
 		go sender.Run()
 		go receiver.Run()
-		transmitor := core.NewTransmitor(sender, receiver, core.DefaultMsgTypes, parameters, committee)
+		transmitor := core.NewTransmitor(sender, receiver, parameters, committee)
 		time.Sleep(time.Second * 2)
 
 		for i := 0; i < 20; i++ {
