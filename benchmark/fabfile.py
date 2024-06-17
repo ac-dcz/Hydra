@@ -15,7 +15,7 @@ def local(ctx):
         'nodes': 4,
         'duration': 10,
         'rate': 3_000,                  # tx send rate
-        'batch_size': 800,              # the max number of tx that can be hold 
+        'batch_size': 200,              # the max number of tx that can be hold 
         'log_level': 0b1111,            # 0x1 infolevel 0x2 debuglevel 0x4 warnlevel 0x8 errorlevel
         'protocol_name': "lightDAG"
     }
@@ -58,7 +58,7 @@ def destroy(ctx):
         Print.error(e)
 
 @task
-def cleanremote(ctx):
+def cleansecurity(ctx):
     ''' Destroy the testbed '''
     try:
         InstanceManager.make().delete_security()
@@ -85,6 +85,13 @@ def stop(ctx):
 def install(ctx):
     try:
         Bench(ctx).install()
+    except BenchError as e:
+        Print.error(e)
+
+@task
+def uploadexec(ctx):
+    try:
+        Bench(ctx).upload_exec()
     except BenchError as e:
         Print.error(e)
 

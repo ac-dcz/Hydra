@@ -132,7 +132,7 @@ class LogParser:
             f' Committee size: {self.committee_size} nodes\n'
             f' Input rate: {rate:,} tx/s\n'
             f' Transaction size: {tx_size:,} B\n'
-            f' Batch size: {batch_size:,} tx/Batch'
+            f' Batch size: {batch_size:,} tx/Batch\n'
             f' Faults: {self.faults} nodes\n'
             f' Execution time: {round(duration):,} s\n'
             '\n'

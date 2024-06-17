@@ -113,12 +113,31 @@ class Bench:
             c.put(PathMaker.parameters_file(), '.')
 
     def install(self):
+
+        cmd = [
+            'sudo apt-get update',
+            'sudo apt-get -y upgrade',
+            'sudo apt-get -y autoremove',
+
+            # The following dependencies prevent the error: [error: linker `cc` not found].
+            'sudo apt-get -y install tmux',
+        ]
+       
+        hosts = self.manager.hosts(flat=True)
+        try:
+            g = Group(*hosts, user='root', connect_kwargs=self.connect)
+            g.run(' && '.join(cmd), hide=True)
+            Print.heading(f'Initialized testbed of {len(hosts)} nodes')
+        except (GroupException, ExecutionError) as e:
+            e = FabricError(e) if isinstance(e, GroupException) else e
+            raise BenchError('Failed to install repo on testbed', e)
+
+    def upload_exec(self):
+        hosts = self.manager.hosts(flat=True)
         # Recompile the latest code.
         cmd = CommandMaker.compile().split()
         subprocess.run(cmd, check=True)
-
         # Upload execute files.
-        hosts = self.manager.hosts(flat=True)
         progress = progress_bar(hosts, prefix='Uploading main files:')
         for host in progress:
             c = Connection(host, user='root', connect_kwargs=self.connect)
