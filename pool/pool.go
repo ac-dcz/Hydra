@@ -43,7 +43,7 @@ func (q *txQueue) run(txChannel <-chan Transaction) {
 	for tx := range txChannel {
 		if q.wind == q.rind {
 			logger.Warn.Println("Transaction pool is full")
-			return
+			continue
 		}
 		q.queue[q.wind] = tx
 		q.wind = (q.wind + 1) % q.maxQueueSize

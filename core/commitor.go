@@ -226,7 +226,6 @@ func (c *Commitor) commitLeaderQueue(q [][2]int) {
 		)
 		if d, ok := c.localDAG.GetReceivedBlock(round, NodeID(leader)); !ok {
 			logger.Error.Println("commitor : not received block")
-			// panic("commitor : not received block")
 			continue
 		} else {
 			queue1, queue2 = append(queue1, d), append(queue2, NodeID(leader))

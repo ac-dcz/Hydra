@@ -5,6 +5,7 @@ import (
 	"lightDAG/logger"
 	"lightDAG/pool"
 	"lightDAG/store"
+	"sync"
 	"time"
 )
 
@@ -30,6 +31,7 @@ type Core struct {
 	loopBackChannel     chan *Block
 	grbcCallBackChannel chan *callBackReq
 	commitChannel       chan<- *Block
+	proposedNotify      map[int]*sync.Mutex
 	proposedFlag        map[int]struct{}
 	grbcInstances       map[int]map[NodeID]*GRBC
 }
@@ -59,6 +61,7 @@ func NewCore(
 		loopBackChannel:     loopBackChannel,
 		grbcCallBackChannel: grbcCallBackChannel,
 		commitChannel:       commitChannel,
+		proposedNotify:      make(map[int]*sync.Mutex),
 		grbcInstances:       make(map[int]map[NodeID]*GRBC),
 		localDAG:            NewLocalDAG(),
 		proposedFlag:        make(map[int]struct{}),
@@ -258,9 +261,26 @@ func (corer *Core) handleOutPut(round int, node NodeID, digest crypto.Digest, re
 
 	if n, grade2nums := corer.localDAG.GetRoundReceivedBlockNums(round); n >= corer.committee.HightThreshold() {
 		if round%WaveRound == 0 {
+
 			if grade2nums >= corer.committee.HightThreshold() {
-				return corer.advanceRound(round + 1)
+				if _, ok := corer.proposedNotify[round+1]; !ok {
+					corer.proposedNotify[round+1] = &sync.Mutex{} // first
+					//timeout
+					time.AfterFunc(time.Millisecond*time.Duration(corer.parameters.NetwrokDelay), func() {
+						mu := corer.proposedNotify[round+1]
+						if mu.TryLock() {
+							corer.advanceRound(round + 1)
+						}
+					})
+				}
+				if grade2nums == corer.committee.Size() {
+					mu := corer.proposedNotify[round+1] // second
+					if mu.TryLock() {
+						corer.advanceRound(round + 1)
+					}
+				}
 			}
+
 		} else {
 			return corer.advanceRound(round + 1)
 		}

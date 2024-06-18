@@ -3,7 +3,6 @@ package network
 import (
 	"encoding/gob"
 	"io"
-	"lightDAG/logger"
 	"reflect"
 )
 
@@ -35,11 +34,9 @@ func (cc *Codec) Bind(conn io.ReadWriter) *Codec {
 func (cc *Codec) Write(msg Messgae) error {
 	typeId := msg.MsgType()
 	if err := cc.encoder.Encode(typeId); err != nil {
-		logger.Error.Printf("Codec encode typeId error: %v \n", err)
 		return err
 	}
 	if err := cc.encoder.Encode(msg); err != nil {
-		logger.Error.Printf("Codec encode msg error: %v \n", err)
 		return err
 	}
 	return nil
