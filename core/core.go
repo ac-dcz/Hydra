@@ -237,13 +237,12 @@ func (corer *Core) handlePBCPropose(propose *PBCProposeMsg) error {
 		return err
 	}
 
-	// if previous round is GPBC round just only check GRBC-qc
-	if (propose.Round-1)%WaveRound != 0 {
-		// Step 3: check reference
-		if ok, miss := corer.checkReference(propose.B); !ok {
-			//retrieve miss block
-			corer.retriever.requestBlocks(miss, propose.Author, propose.B.Hash())
+	// Step 3: check reference
+	if ok, miss := corer.checkReference(propose.B); !ok {
+		//retrieve miss block
+		corer.retriever.requestBlocks(miss, propose.Author, propose.B.Hash())
 
+		if (propose.Round-1)%WaveRound != 0 { //如果前一轮是一个PB Round，必须等收到区块后开始投票
 			return ErrReference(propose.MsgType(), propose.Round, int(propose.Author))
 		}
 	}
@@ -261,7 +260,6 @@ func (corer *Core) handleOutPut(round int, node NodeID, digest crypto.Digest, re
 
 	if n, grade2nums := corer.localDAG.GetRoundReceivedBlockNums(round); n >= corer.committee.HightThreshold() {
 		if round%WaveRound == 0 {
-
 			if grade2nums >= corer.committee.HightThreshold() {
 				if _, ok := corer.proposedNotify[round+1]; !ok {
 					corer.proposedNotify[round+1] = &sync.Mutex{} // first

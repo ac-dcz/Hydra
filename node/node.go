@@ -72,7 +72,7 @@ func NewNode(
 		return nil, err
 	}
 
-	txpool.Run()
+	// txpool.Run()
 	logger.Info.Printf("Node %d successfully booted \n", nodeID)
 
 	return &Node{

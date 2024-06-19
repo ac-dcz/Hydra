@@ -28,6 +28,7 @@ type Retriever struct {
 	requests        map[int]*RequestBlockMsg   //Request
 	loopBackBlocks  map[int]crypto.Digest      // loopback deal block
 	loopBackCnts    map[int]int
+	miss2Blocks     map[crypto.Digest][]int //
 	reqChannel      chan *reqRetrieve
 	sigService      *crypto.SigService
 	store           *store.Store
@@ -52,6 +53,7 @@ func NewRetriever(
 		loopBackBlocks:  make(map[int]crypto.Digest),
 		loopBackCnts:    make(map[int]int),
 		reqChannel:      make(chan *reqRetrieve, 1_00),
+		miss2Blocks:     make(map[crypto.Digest][]int),
 		store:           store,
 		sigService:      sigService,
 		transmitor:      transmitor,
@@ -71,23 +73,26 @@ func (r *Retriever) run() {
 			switch req.typ {
 			case ReqType: //request Block
 				{
+					r.loopBackBlocks[r.cnt] = req.backBlock
+					r.loopBackCnts[r.cnt] = len(req.digest)
 					var missBlocks []crypto.Digest
 					for i := 0; i < len(req.digest); i++ { //filter block that dealing
+						r.miss2Blocks[req.digest[i]] = append(r.miss2Blocks[req.digest[i]], r.cnt)
 						if _, ok := r.pendding[req.digest[i]]; ok {
 							continue
 						}
 						missBlocks = append(missBlocks, req.digest[i])
 						r.pendding[req.digest[i]] = struct{}{}
 					}
+
 					if len(missBlocks) > 0 {
-						r.loopBackBlocks[r.cnt] = req.backBlock
 						request, _ := NewRequestBlock(r.nodeID, missBlocks, r.cnt, time.Now().UnixMilli(), r.sigService)
 						logger.Debug.Printf("sending request for miss block reqID %d \n", r.cnt)
 						_ = r.transmitor.Send(request.Author, req.nodeID, request)
 						r.requests[request.ReqID] = request
-						r.cnt++
 					}
 
+					r.cnt++
 				}
 			case ReplyType: //request finish
 				{
@@ -95,13 +100,15 @@ func (r *Retriever) run() {
 					if _, ok := r.requests[req.reqID]; ok {
 						_req := r.requests[req.reqID]
 						for _, d := range _req.MissBlock {
+							for _, id := range r.miss2Blocks[d] {
+								r.loopBackCnts[id]--
+								if r.loopBackCnts[id] == 0 {
+									go r.loopBack(r.loopBackBlocks[id])
+								}
+							}
 							delete(r.pendding, d) // delete
 						}
 						delete(r.requests, _req.ReqID) //delete request that finished
-						if blockHash, ok := r.loopBackBlocks[req.reqID]; ok {
-							//LoopBack
-							go r.loopBack(blockHash)
-						}
 					}
 				}
 			}

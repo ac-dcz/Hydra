@@ -242,8 +242,7 @@ func (c *Commitor) commitLeaderQueue(q [][2]int) {
 						c.commitBlocks[block] = struct{}{} // commit flag
 
 						if ref, ok := c.localDAG.GetReceivedBlockReference(round, node); !ok {
-							logger.Error.Println("commitor : not received block")
-							panic("commitor : not received block")
+							logger.Error.Println("commitor : not received block reference")
 						} else {
 
 							for d, nodeid := range ref {

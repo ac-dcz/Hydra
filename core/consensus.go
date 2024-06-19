@@ -69,7 +69,7 @@ func Consensus(
 	}
 	wg.Wait()
 	time.Sleep(time.Millisecond * time.Duration(parameters.SyncTimeout))
-
+	txpool.Run()
 	//Step 3: start protocol
 	corer := NewCore(id, committee, parameters, txpool, transmitor, store, sigService, commitChannel)
 
