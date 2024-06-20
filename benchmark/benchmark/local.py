@@ -14,7 +14,7 @@ class LocalBench:
 
     def __init__(self, bench_parameters_dict, node_parameters_dict):
         try:
-            self.ts = datetime.now().strftime("%Y-%m-%dv%H:%M:%S")
+            self.ts = datetime.now().strftime(r"%Y-%m-%d-%H-%M-%S")
             self.bench_parameters = BenchParameters(bench_parameters_dict)
             self.node_parameters = NodeParameters(node_parameters_dict)
         except ConfigError as e:
@@ -23,7 +23,7 @@ class LocalBench:
 
     def _background_run(self, command, log_file):
         name = splitext(basename(log_file))[0]
-        cmd = f'{command}'
+        cmd = f'{command} 2> {log_file}'
         subprocess.run(['tmux', 'new', '-d', '-s', name, cmd], check=True)
 
     def _kill_nodes(self):
@@ -85,7 +85,7 @@ class LocalBench:
 
             # Run the nodes.
             dbs = [PathMaker.db_path(i) for i in range(nodes)]
-            node_logs = [PathMaker.node_log_info_file(i,self.ts) for i in range(nodes)]
+            node_logs = [PathMaker.node_log_error_file(i,self.ts) for i in range(nodes)]
 
             for id,key_file, threshold_key_file, db, log_file in zip(ids,key_files, threshold_key_files, dbs, node_logs):
                 cmd = CommandMaker.run_node(
