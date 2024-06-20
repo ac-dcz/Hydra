@@ -418,54 +418,55 @@ func (corer *Core) handleCallBack(req *callBackReq) error {
 }
 
 func (corer *Core) Run() {
+	if corer.nodeID >= NodeID(corer.parameters.Faults) {
+		//first propose
+		block := corer.generatorBlock(0)
+		if propose, err := NewGRBCProposeMsg(corer.nodeID, 0, block, corer.sigService); err != nil {
+			logger.Error.Println(err)
+			panic(err)
+		} else {
+			corer.transmitor.Send(corer.nodeID, NONE, propose)
+			corer.transmitor.RecvChannel() <- propose
+		}
 
-	//first propose
-	block := corer.generatorBlock(0)
-	if propose, err := NewGRBCProposeMsg(corer.nodeID, 0, block, corer.sigService); err != nil {
-		logger.Error.Println(err)
-		panic(err)
-	} else {
-		corer.transmitor.Send(corer.nodeID, NONE, propose)
-		corer.transmitor.RecvChannel() <- propose
-	}
+		for {
+			var err error
+			select {
+			case msg := <-corer.transmitor.RecvChannel():
+				{
+					switch msg.MsgType() {
 
-	for {
-		var err error
-		select {
-		case msg := <-corer.transmitor.RecvChannel():
-			{
-				switch msg.MsgType() {
+					case GRBCProposeType:
+						err = corer.handleGRBCPropose(msg.(*GRBCProposeMsg))
+					case EchoType:
+						err = corer.handleEcho(msg.(*EchoMsg))
+					case ReadyType:
+						err = corer.handleReady(msg.(*ReadyMsg))
+					case PBCProposeType:
+						err = corer.handlePBCPropose(msg.(*PBCProposeMsg))
+					case ElectType:
+						err = corer.handleElect(msg.(*ElectMsg))
+					case RequestBlockType:
+						err = corer.handleRequestBlock(msg.(*RequestBlockMsg))
+					case ReplyBlockType:
+						err = corer.handleReplyBlock(msg.(*ReplyBlockMsg))
+					}
+				}
 
-				case GRBCProposeType:
-					err = corer.handleGRBCPropose(msg.(*GRBCProposeMsg))
-				case EchoType:
-					err = corer.handleEcho(msg.(*EchoMsg))
-				case ReadyType:
-					err = corer.handleReady(msg.(*ReadyMsg))
-				case PBCProposeType:
-					err = corer.handlePBCPropose(msg.(*PBCProposeMsg))
-				case ElectType:
-					err = corer.handleElect(msg.(*ElectMsg))
-				case RequestBlockType:
-					err = corer.handleRequestBlock(msg.(*RequestBlockMsg))
-				case ReplyBlockType:
-					err = corer.handleReplyBlock(msg.(*ReplyBlockMsg))
+			case block := <-corer.loopBackChannel:
+				{
+					err = corer.handleLoopBack(block)
+				}
+			case cbReq := <-corer.grbcCallBackChannel:
+				{
+					err = corer.handleCallBack(cbReq)
 				}
 			}
 
-		case block := <-corer.loopBackChannel:
-			{
-				err = corer.handleLoopBack(block)
+			if err != nil {
+				logger.Warn.Println(err)
 			}
-		case cbReq := <-corer.grbcCallBackChannel:
-			{
-				err = corer.handleCallBack(cbReq)
-			}
-		}
 
-		if err != nil {
-			logger.Warn.Println(err)
 		}
-
 	}
 }
