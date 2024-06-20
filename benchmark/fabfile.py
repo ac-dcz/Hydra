@@ -13,7 +13,7 @@ def local(ctx):
     ''' Run benchmarks on localhost '''
     bench_params = {
         'nodes': 4,
-        'duration': 10,
+        'duration': 50,
         'rate': 3_000,                  # tx send rate
         'batch_size': 200,              # the max number of tx that can be hold 
         'log_level': 0b1111,            # 0x1 infolevel 0x2 debuglevel 0x4 warnlevel 0x8 errorlevel
@@ -28,10 +28,10 @@ def local(ctx):
 	    },
         "consensus": {
             "sync_timeout": 500,        # node sync time
-            "network_delay": 2_000,     # network delay
+            "network_delay": 50,        # network delay
             "min_block_delay": 0,       # send block delay
             "ddos": False,              # DDOS attack
-            "faults": 0,                # the number of byzantine node
+            "faults": 1,                # the number of byzantine node
             "retry_delay": 5_000        # request block period
         }
     }
@@ -107,28 +107,28 @@ def info(ctx):
 def remote(ctx):
     ''' Run benchmarks on AWS '''
     bench_params = {
-        'nodes': [4],
-        'node_instance': 2,               # the number of running instance for a node  (max = 4)
-        'duration': 20,
-        'rate': 3_000,                    # tx send rate
-        'batch_size': [800],              # the max number of tx that can be hold 
-        'log_level': 0b1111,              # 0x1 infolevel 0x2 debuglevel 0x4 warnlevel 0x8 errorlevel
+        'nodes': [10],
+        'node_instance': 1,                                             # the number of running instance for a node  (max = 4)
+        'duration': 30,
+        'rate': 8_000,                                                  # tx send rate
+        'batch_size': [5_00,1_000,2_000,2_500,3_300,4_000,5_000],                              # the max number of tx that can be hold 
+        'log_level': 0b1111,                                            # 0x1 infolevel 0x2 debuglevel 0x4 warnlevel 0x8 errorlevel
         'protocol_name': "lightDAG",
         'runs': 1
     }
     node_params = {
         "pool": {
             # "rate": 1_000,              # ignore: tx send rate 
-            "tx_size": 64,                # tx size
+            "tx_size": 250,               # tx size
             # "batch_size": 200,          # ignore: the max number of tx that can be hold 
-            "max_queue_size": 10_000 
+            "max_queue_size": 100_000 
 	    },
         "consensus": {
             "sync_timeout": 1_000,      # node sync time
-            "network_delay": 2_000,     # network delay
+            "network_delay": 1_000,     # network delay
             "min_block_delay": 0,       # send block delay
             "ddos": False,              # DDOS attack
-            "faults": 0,                # the number of byzantine node
+            "faults": 3,                # the number of byzantine node
             "retry_delay": 5_000        # request block period
         }
     }
@@ -146,7 +146,7 @@ def kill(ctx):
         Print.error(e)
 
 @task
-def download(ctx,node_instance=4,ts="2024-06-04v10:15:10"):
+def download(ctx,node_instance=2,ts="2024-06-19-09-02-46"):
     ''' download logs '''
     try:
         print(Bench(ctx).download(node_instance,ts).result())

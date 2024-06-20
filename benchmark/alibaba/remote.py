@@ -80,7 +80,7 @@ class Bench:
 
     def _background_run(self, host, command, log_file):
         name = splitext(basename(log_file))[0]
-        cmd = f'tmux new -d -s "{name}" "{command}"'
+        cmd = f'tmux new -d -s "{name}" "{command} |& tee {log_file}"'
         c = Connection(host, user='root', connect_kwargs=self.connect)
         output = c.run(cmd, hide=True)
         self._check_stderr(output)
@@ -210,7 +210,7 @@ class Bench:
         key_files = [PathMaker.key_file(i) for i in range(nodes)]
         threshold_key_files = [PathMaker.threshold_key_file(i) for i in range(nodes)]
         dbs = [PathMaker.db_path(i) for i in range(nodes)]
-        node_logs = [PathMaker.node_log_info_file(i,ts) for i in range(nodes)]
+        node_logs = [PathMaker.node_log_error_file(i,ts) for i in range(nodes)]
         for i,host in enumerate(hosts):
             for j in range(node_instance):
                 cmd = CommandMaker.run_node(
@@ -227,7 +227,7 @@ class Bench:
 
         # Wait for the nodes to synchronize
         Print.info('Waiting for the nodes to synchronize...')
-        sleep(10)
+        sleep(20)
 
         # Wait for all transactions to be processed.
         duration = bench_parameters.duration
@@ -242,10 +242,10 @@ class Bench:
         for i, host in enumerate(progress):
             c = Connection(host, user='root', connect_kwargs=self.connect)
             for j in range(node_instance):
-                c.get(PathMaker.node_log_info_file(i*node_instance+j,ts), local=PathMaker.node_log_info_file(i*node_instance+j,ts))
+                # c.get(PathMaker.node_log_info_file(i*node_instance+j,ts), local=PathMaker.node_log_info_file(i*node_instance+j,ts))
                 c.get(PathMaker.node_log_debug_file(i*node_instance+j,ts), local=PathMaker.node_log_debug_file(i*node_instance+j,ts))
-                c.get(PathMaker.node_log_error_file(i*node_instance+j,ts), local=PathMaker.node_log_error_file(i*node_instance+j,ts))
-                c.get(PathMaker.node_log_warn_file(i*node_instance+j,ts), local=PathMaker.node_log_warn_file(i*node_instance+j,ts))
+                # c.get(PathMaker.node_log_error_file(i*node_instance+j,ts), local=PathMaker.node_log_error_file(i*node_instance+j,ts))
+                # c.get(PathMaker.node_log_warn_file(i*node_instance+j,ts), local=PathMaker.node_log_warn_file(i*node_instance+j,ts))
 
         # Parse logs and return the parser.
         Print.info('Parsing logs and computing performance...')
@@ -261,8 +261,8 @@ class Bench:
             for j in range(node_instance):
                 c.get(PathMaker.node_log_info_file(i*node_instance+j,ts), local=PathMaker.node_log_info_file(i*node_instance+j,ts))
                 # c.get(PathMaker.node_log_debug_file(i*node_instance+j,ts), local=PathMaker.node_log_debug_file(i*node_instance+j,ts))
-                c.get(PathMaker.node_log_error_file(i*node_instance+j,ts), local=PathMaker.node_log_error_file(i*node_instance+j,ts))
-                c.get(PathMaker.node_log_warn_file(i*node_instance+j,ts), local=PathMaker.node_log_warn_file(i*node_instance+j,ts))
+                # c.get(PathMaker.node_log_error_file(i*node_instance+j,ts), local=PathMaker.node_log_error_file(i*node_instance+j,ts))
+                # c.get(PathMaker.node_log_warn_file(i*node_instance+j,ts), local=PathMaker.node_log_warn_file(i*node_instance+j,ts))
 
         # Parse logs and return the parser.
         Print.info('Parsing logs and computing performance...')
@@ -278,6 +278,9 @@ class Bench:
         except ConfigError as e:
             raise BenchError('Invalid nodes or bench parameters', e)
 
+        # Recompile the latest code.
+        cmd = CommandMaker.compile().split()
+        subprocess.run(cmd, check=True)
 
         #Step 1: Select which hosts to use.
         selected_hosts = self._select_hosts(bench_parameters)
@@ -307,7 +310,7 @@ class Bench:
 
                 node_parameters.json['pool']['rate'] = bench_parameters.rate
                 node_parameters.json['pool']['batch_size'] = batch_size
-                self.ts = datetime.now().strftime("%Y-%m-%dv%H:%M:%S")
+                self.ts = datetime.now().strftime(r"%Y-%m-%d-%H-%M-%S")
                 
                 #Step a: only upload parameters files.
                 try:

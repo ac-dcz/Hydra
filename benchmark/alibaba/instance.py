@@ -280,7 +280,7 @@ class InstanceManager:
         try:
             ids, _ = self._get(['Stopping', 'Stopped'])
             for region, client in self.ecs_clients.items():
-                for id in ids[region]:
+                if ids[region]:
                     target = ids[region]
                     target = target if len(target) < max else target[:max]
                     size += len(target)
