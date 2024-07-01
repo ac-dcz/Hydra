@@ -158,12 +158,7 @@ class InstanceManager:
             instance_type = self.settings.instance_type,
             ostype = 'linux',
             architecture = 'x86_64',
-            filter=[
-                ecs_20140526_models.DescribeImagesRequestFilter(
-                    key='description',
-                    value='Canonical, Ubuntu, 20.04 LTS, amd64 focal image build on 2020-10-26'
-                )
-            ],
+            image_family='acs:ubuntu_20_04_x64',
             page_size=1,
             page_number=1
         )
