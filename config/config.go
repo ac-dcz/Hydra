@@ -1,11 +1,11 @@
 package config
 
 import (
+	"WuKong/core"
+	"WuKong/crypto"
+	"WuKong/pool"
 	"encoding/json"
 	"fmt"
-	"lightDAG/core"
-	"lightDAG/crypto"
-	"lightDAG/pool"
 	"os"
 	"strconv"
 )

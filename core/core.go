@@ -1,10 +1,10 @@
 package core
 
 import (
-	"lightDAG/crypto"
-	"lightDAG/logger"
-	"lightDAG/pool"
-	"lightDAG/store"
+	"WuKong/crypto"
+	"WuKong/logger"
+	"WuKong/pool"
+	"WuKong/store"
 	"sync"
 	"time"
 )

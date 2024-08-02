@@ -1,7 +1,7 @@
 package pool
 
 import (
-	"lightDAG/logger"
+	"WuKong/logger"
 	"testing"
 	"time"
 )

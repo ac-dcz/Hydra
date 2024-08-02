@@ -1,9 +1,9 @@
 package main
 
 import (
-	"lightDAG/config"
-	"lightDAG/logger"
-	"lightDAG/node"
+	"WuKong/config"
+	"WuKong/logger"
+	"WuKong/node"
 
 	"github.com/spf13/cobra"
 )

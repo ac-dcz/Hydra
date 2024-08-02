@@ -1,7 +1,7 @@
 package core
 
 import (
-	"lightDAG/network"
+	"WuKong/network"
 	"time"
 )
 

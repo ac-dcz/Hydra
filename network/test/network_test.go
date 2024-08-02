@@ -1,8 +1,8 @@
 package test
 
 import (
-	"lightDAG/core"
-	"lightDAG/network"
+	"WuKong/core"
+	"WuKong/network"
 	"sync"
 	"testing"
 	"time"

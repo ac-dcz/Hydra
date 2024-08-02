@@ -17,7 +17,7 @@ def local(ctx):
         'rate': 3_000,                  # tx send rate
         'batch_size': 200,              # the max number of tx that can be hold 
         'log_level': 0b1111,            # 0x1 infolevel 0x2 debuglevel 0x4 warnlevel 0x8 errorlevel
-        'protocol_name': "lightDAG"
+        'protocol_name': "WuKong"
     }
     node_params = {
         "pool": {
@@ -113,7 +113,7 @@ def remote(ctx):
         'rate': 8_000,                                                  # tx send rate
         'batch_size': [5_00,1_000,2_000,2_500,3_300,4_000,5_000],                              # the max number of tx that can be hold 
         'log_level': 0b1111,                                            # 0x1 infolevel 0x2 debuglevel 0x4 warnlevel 0x8 errorlevel
-        'protocol_name': "lightDAG",
+        'protocol_name': "WuKong",
         'runs': 1
     }
     node_params = {

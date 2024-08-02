@@ -1,8 +1,8 @@
 package config
 
 import (
+	"WuKong/crypto"
 	"fmt"
-	"lightDAG/crypto"
 	"testing"
 )
 

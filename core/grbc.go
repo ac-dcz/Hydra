@@ -1,8 +1,8 @@
 package core
 
 import (
-	"lightDAG/crypto"
-	"lightDAG/logger"
+	"WuKong/crypto"
+	"WuKong/logger"
 	"sync"
 	"sync/atomic"
 )

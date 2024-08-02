@@ -1,10 +1,10 @@
 package test
 
 import (
-	"lightDAG/core"
-	"lightDAG/crypto"
-	"lightDAG/logger"
-	"lightDAG/pool"
+	"WuKong/core"
+	"WuKong/crypto"
+	"WuKong/logger"
+	"WuKong/pool"
 	"testing"
 )
 

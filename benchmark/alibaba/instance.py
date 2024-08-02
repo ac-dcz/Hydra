@@ -18,9 +18,9 @@ from alibaba.settings import Settings, SettingsError
 
 
 class InstanceManager:
-    INSTANCE_NAME = 'lightDAG'
-    SECURITY_GROUP_NAME = 'lightDAG'
-    VPC_NAME = 'lightDAG'
+    INSTANCE_NAME = 'WuKong'
+    SECURITY_GROUP_NAME = 'WuKong'
+    VPC_NAME = 'lightDag'
 
     def __init__(self, settings):
         assert isinstance(settings, Settings)
@@ -98,7 +98,7 @@ class InstanceManager:
             # step 0: 查询vpc
             describe_vpcs_request = vpc_20160428_models.DescribeVpcsRequest(
                 region_id = region,
-                vpc_name='lightDAG'
+                vpc_name='WuKong'
             )
 
             resp = self.vpc_clients[region].describe_vpcs_with_options(describe_vpcs_request, self.aliyun_runtime).to_map()

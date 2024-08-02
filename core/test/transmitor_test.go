@@ -1,11 +1,11 @@
 package test
 
 import (
+	"WuKong/config"
+	"WuKong/core"
+	"WuKong/crypto"
+	"WuKong/network"
 	"context"
-	"lightDAG/config"
-	"lightDAG/core"
-	"lightDAG/crypto"
-	"lightDAG/network"
 	"sync"
 	"testing"
 	"time"

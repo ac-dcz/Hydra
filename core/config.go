@@ -1,6 +1,6 @@
 package core
 
-import "lightDAG/crypto"
+import "WuKong/crypto"
 
 type Parameters struct {
 	SyncTimeout   int  `json:"sync_timeout"`

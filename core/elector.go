@@ -1,7 +1,7 @@
 package core
 
 import (
-	"lightDAG/crypto"
+	"WuKong/crypto"
 	"sync"
 )
 
