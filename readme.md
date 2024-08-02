@@ -66,12 +66,12 @@ Set up your Aliyun credentials to enable programmatic access to your account fro
 }
 ```
 
-**2.  Add your SSH public key to your AWS account**
+**2.  Add your SSH public key to your Aliyun account**
 
-You must now [add your SSH public key to your AWS account](https://help.aliyun.com/document_detail/201472.html). This operation is manual and needs to be repeated for each Aliyun region that you plan to use. Upon importing your key, Aliyun requires you to choose a 'name' for your key; ensure you set the same name on all Aliyun regions. This SSH key will be used by the python scripts to execute commands and upload/download files to your Aliyun instances. If you don't have an SSH key, you can create one using [ssh-keygen](https://www.ssh.com/ssh/keygen/):
+You must now [add your SSH public key to your Aliyun account](https://help.aliyun.com/document_detail/201472.html). This operation is manual and needs to be repeated for each Aliyun region that you plan to use. Upon importing your key, Aliyun requires you to choose a 'name' for your key; ensure you set the same name on all Aliyun regions. This SSH key will be used by the python scripts to execute commands and upload/download files to your Aliyun instances. If you don't have an SSH key, you can create one using [ssh-keygen](https://www.ssh.com/ssh/keygen/):
 
 ```
-ssh-keygen -f ~/.ssh/aws
+ssh-keygen -f ~/.ssh/Aliyun
 ```
 
 **3. Configure the testbed**
@@ -112,7 +112,7 @@ The first block (`key`) contains information regarding your SSH key and Access K
 
 The second block (`ports`) specifies the TCP ports to use:
 
-```\
+```json
 "ports": {
     "consensus": 8000
 }
@@ -120,7 +120,7 @@ The second block (`ports`) specifies the TCP ports to use:
 
 The the last block (`instances`) specifies the[Aliyun Instance Type](https://help.aliyun.com/zh/ecs/user-guide/general-purpose-instance-families)and the [Aliyun regions](https://help.aliyun.com/zh/ecs/product-overview/regions-and-zones) to use:
 
-```
+```json
 "instances": {
     "type": "ecs.g6e.xlarge",
     "regions": [
@@ -136,9 +136,9 @@ The the last block (`instances`) specifies the[Aliyun Instance Type](https://hel
 
 The Aliyun instances are orchestrated with [Fabric](http://www.fabfile.org/) from the file [fabfile.py](https://github.com/ac-dcz/WuKong/blob/main/benchmark/fabfile.py) (located in [WuKong/benchmark](https://github.com/ac-dcz/WuKong/tree/main/benchmark)) you can list all possible commands as follows:
 
-The command `fab create` creates new AWS instances; open [fabfile.py](https://github.com/ac-dcz/WuKong/blob/main/benchmark/fabfile.py) and locate the `create` task:
+The command `fab create` creates new Aliyun instances; open [fabfile.py](https://github.com/ac-dcz/WuKong/blob/main/benchmark/fabfile.py) and locate the `create` task:
 
-```
+```python
 @task
 def create(ctx, nodes=2):
     ...
@@ -146,7 +146,7 @@ def create(ctx, nodes=2):
 
 The parameter `nodes` determines how many instances to create in *each* Aliyun region. That is, if you specified 4 Aliyun regions as in the example of step 3, setting `nodes=2` will creates a total of 8 machines:
 
-```
+```shell
 $ fab create
 
 Creating 8 instances |██████████████████████████████| 100.0% 
@@ -156,7 +156,7 @@ Successfully created 8 new instances
 
 You can then install goland on the remote instances with `fab install`:
 
-```
+```shell
 $ fab install
 
 Installing rust and cloning the repo...
@@ -165,13 +165,13 @@ Initialized testbed of 10 nodes
 
 Next,you should upload the executable file
 
-```
+```shell
 $ fab uploadexec
 ```
 
 **5. Run a benchmark**
 
-```
+```shell
 $ fab remote
 ```
 
