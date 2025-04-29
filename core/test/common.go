@@ -1,10 +1,10 @@
 package test
 
 import (
-	"WuKong/core"
-	"WuKong/crypto"
-	"WuKong/logger"
-	"WuKong/pool"
+	"Hydra/core"
+	"Hydra/crypto"
+	"Hydra/logger"
+	"Hydra/pool"
 	"testing"
 )
 

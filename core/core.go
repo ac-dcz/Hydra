@@ -1,10 +1,10 @@
 package core
 
 import (
-	"WuKong/crypto"
-	"WuKong/logger"
-	"WuKong/pool"
-	"WuKong/store"
+	"Hydra/crypto"
+	"Hydra/logger"
+	"Hydra/pool"
+	"Hydra/store"
 	"sync"
 	"time"
 )

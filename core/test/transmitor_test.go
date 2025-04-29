@@ -1,10 +1,10 @@
 package test
 
 import (
-	"WuKong/config"
-	"WuKong/core"
-	"WuKong/crypto"
-	"WuKong/network"
+	"Hydra/config"
+	"Hydra/core"
+	"Hydra/crypto"
+	"Hydra/network"
 	"context"
 	"sync"
 	"testing"

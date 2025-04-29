@@ -1,7 +1,7 @@
 package config
 
 import (
-	"WuKong/crypto"
+	"Hydra/crypto"
 	"fmt"
 	"testing"
 )

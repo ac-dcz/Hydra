@@ -1,9 +1,9 @@
 package main
 
 import (
-	"WuKong/config"
-	"WuKong/logger"
-	"WuKong/node"
+	"Hydra/config"
+	"Hydra/logger"
+	"Hydra/node"
 
 	"github.com/spf13/cobra"
 )

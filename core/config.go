@@ -1,6 +1,6 @@
 package core
 
-import "WuKong/crypto"
+import "Hydra/crypto"
 
 type Parameters struct {
 	SyncTimeout   int  `json:"sync_timeout"`

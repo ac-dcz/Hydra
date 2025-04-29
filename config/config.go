@@ -1,9 +1,9 @@
 package config
 
 import (
-	"WuKong/core"
-	"WuKong/crypto"
-	"WuKong/pool"
+	"Hydra/core"
+	"Hydra/crypto"
+	"Hydra/pool"
 	"encoding/json"
 	"fmt"
 	"os"

@@ -1,4 +1,4 @@
-module WuKong
+module Hydra
 
 go 1.21.1
 

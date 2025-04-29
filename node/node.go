@@ -1,12 +1,12 @@
 package node
 
 import (
-	"WuKong/config"
-	"WuKong/core"
-	"WuKong/crypto"
-	"WuKong/logger"
-	"WuKong/pool"
-	"WuKong/store"
+	"Hydra/config"
+	"Hydra/core"
+	"Hydra/crypto"
+	"Hydra/logger"
+	"Hydra/pool"
+	"Hydra/store"
 	"fmt"
 )
 

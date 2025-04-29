@@ -1,8 +1,8 @@
 package test
 
 import (
-	"WuKong/core"
-	"WuKong/network"
+	"Hydra/core"
+	"Hydra/network"
 	"sync"
 	"testing"
 	"time"

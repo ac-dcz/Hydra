@@ -1,8 +1,8 @@
 package core
 
 import (
-	"WuKong/crypto"
-	"WuKong/logger"
+	"Hydra/crypto"
+	"Hydra/logger"
 	"sync"
 	"sync/atomic"
 )

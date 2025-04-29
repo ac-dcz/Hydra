@@ -1,7 +1,7 @@
 package core
 
 import (
-	"WuKong/crypto"
+	"Hydra/crypto"
 	"sync"
 )
 
