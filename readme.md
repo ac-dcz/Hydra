@@ -1,21 +1,21 @@
-## Wukong
+## Hydra
 
 ![build status](https://img.shields.io/github/actions/workflow/status/asonnino/hotstuff/rust.yml?style=flat-square&logo=GitHub&logoColor=white&link=https%3A%2F%2Fgithub.com%2Fasonnino%2Fhotstuff%2Factions)
 [![golang](https://img.shields.io/badge/golang-1.21.1-blue?style=flat-square&logo=golang)](https://www.rust-lang.org)
 [![python](https://img.shields.io/badge/python-3.9-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/release/python-390/)
 [![license](https://img.shields.io/badge/license-Apache-blue.svg?style=flat-square)](LICENSE)
 
-This repo provides a minimal implementation of the Wukong consensus protocol. The codebase has been designed to be small, efficient, and easy to benchmark and modify. It has not been designed to run in production but uses real cryptography (kyber), networking(native), and storage (nutsdb).
+This repo provides a minimal implementation of the Hydra consensus protocol. The codebase has been designed to be small, efficient, and easy to benchmark and modify. It has not been designed to run in production but uses real cryptography (kyber), networking(native), and storage (nutsdb).
 
-Say something about Wukong...
+Say something about Hydra...
 
 ## Quick Start
 
-Wukong is written in Golang, but all benchmarking scripts are written in Python and run with Fabric. To deploy and benchmark a testbed of 4 nodes on your local machine, clone the repo and install the python dependencies:
+Hydra is written in Golang, but all benchmarking scripts are written in Python and run with Fabric. To deploy and benchmark a testbed of 4 nodes on your local machine, clone the repo and install the python dependencies:
 
 ```shell
-git clone https://github.com/ac-dcz/Wukong
-cd Wukong/benchmark
+git clone https://github.com/ac-dcz/Hydra
+cd Hydra/benchmark
 pip install -r requirements.txt
 ```
 
@@ -34,7 +34,7 @@ This command may take a long time the first time you run it (compiling golang co
  SUMMARY:
 -----------------------------------------
  + CONFIG:
- Protocol: Wukong 
+ Protocol: Hydra 
  DDOS attack: False 
  Committee size: 4 nodes
  Input rate: 3,000 tx/s
@@ -76,12 +76,12 @@ ssh-keygen -f ~/.ssh/Aliyun
 
 **3. Configure the testbed**
 
-The file [settings.json](https://github.com/asonnino/hotstuff/blob/main/benchmark/settings.json) (located in [WuKong/benchmark](https://github.com/ac-dcz/WuKong/tree/main/benchmark) contains all the configuration parameters of the testbed to deploy. Its content looks as follows:
+The file [settings.json](https://github.com/asonnino/hotstuff/blob/main/benchmark/settings.json) (located in [Hydra/benchmark](https://github.com/ac-dcz/Hydra/tree/main/benchmark) contains all the configuration parameters of the testbed to deploy. Its content looks as follows:
 
 ```json
 {
     "key": {
-        "name": "wuKong",
+        "name": "Hydra",
         "path": "/root/.ssh/id_rsa",
         "accesskey": "/root/.aliyun/access.json"
     },
@@ -104,7 +104,7 @@ The first block (`key`) contains information regarding your SSH key and Access K
 
 ```json
 "key": {
-    "name": "wuKong",
+    "name": "Hydra",
     "path": "/root/.ssh/id_rsa",
     "accesskey": "/root/.aliyun/access.json"
 }
@@ -134,9 +134,9 @@ The the last block (`instances`) specifies the[Aliyun Instance Type](https://hel
 
 **4. Create a testbed**
 
-The Aliyun instances are orchestrated with [Fabric](http://www.fabfile.org/) from the file [fabfile.py](https://github.com/ac-dcz/WuKong/blob/main/benchmark/fabfile.py) (located in [WuKong/benchmark](https://github.com/ac-dcz/WuKong/tree/main/benchmark)) you can list all possible commands as follows:
+The Aliyun instances are orchestrated with [Fabric](http://www.fabfile.org/) from the file [fabfile.py](https://github.com/ac-dcz/Hydra/blob/main/benchmark/fabfile.py) (located in [Hydra/benchmark](https://github.com/ac-dcz/Hydra/tree/main/benchmark)) you can list all possible commands as follows:
 
-The command `fab create` creates new Aliyun instances; open [fabfile.py](https://github.com/ac-dcz/WuKong/blob/main/benchmark/fabfile.py) and locate the `create` task:
+The command `fab create` creates new Aliyun instances; open [fabfile.py](https://github.com/ac-dcz/Hydra/blob/main/benchmark/fabfile.py) and locate the `create` task:
 
 ```python
 @task
